@@ -45,7 +45,9 @@ export async function updateProfile(formData: FormData) {
 ## Org-Scoped Cache
 
 ```typescript
-const { orgId } = await auth();
+const { userId, orgId } = await auth();
+if (!userId || !orgId) throw new Error('Unauthorized');
+
 const getOrgData = unstable_cache(
   () => db.orgData.findMany({ where: { organizationId: orgId } }),
   [`org-${orgId}-data`],

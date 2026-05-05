@@ -40,6 +40,7 @@
 - Narrowed the Clerk auth form card so the right-side sign-in panel matches the intended 50/50 layout proportions.
 - Moved the editor navbar profile avatar to the absolute right edge, reduced navbar padding, and centered navbar controls vertically.
 - Removed the decorative brand strip from the auth left panel and tightened auth/root wrappers to full-width, overflow-hidden backgrounds.
+- Added UserProfile-specific Clerk appearance overrides so the built-in manage account modal keeps its wider two-column layout instead of inheriting the narrow sign-in card width.
 
 ## Open Questions
 

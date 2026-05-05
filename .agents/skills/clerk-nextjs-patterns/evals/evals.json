@@ -59,8 +59,8 @@
       "expected_output": "Uses getToken with template parameter from auth() server-side, passes as Bearer token to external API",
       "scaffold": "nextjs-basic-auth",
       "expectations": [
-        "Uses getToken with a template parameter (e.g. 'hasura') to get a custom JWT",
-        "Uses either auth() server-side or useAuth() client-side to access getToken",
+        "Imports auth from @clerk/nextjs/server",
+        "Calls auth() server-side and uses getToken({ template: 'hasura' }) or an equivalent template-based getToken call",
         "Passes the token as Authorization Bearer header to the external API call",
         "Handles the case where getToken returns null (user not authenticated)"
       ]
