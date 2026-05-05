@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-- Complete: `context/feature-specs/02-editor.md`
+- Complete: `context/feature-specs/03-auth.md`
 
 ## Completed Work
 
@@ -22,6 +22,24 @@
 - Verified `npm.cmd run lint` and `npm.cmd run build`.
 - Added `components/editor/editor-layout.tsx` so the editor navbar and project sidebar are composed in a reusable layout shell.
 - Refactored `app/page.tsx` to render its content inside `EditorLayout`.
+- Read `context/feature-specs/03-auth.md` and started the Clerk auth implementation.
+- Installed `@clerk/ui` for Clerk's dark base theme support.
+- Added shared auth route constants that use Clerk's standard public URL env vars with local auth route fallbacks.
+- Added shared Clerk appearance configuration using existing Ghost AI CSS variables.
+- Wrapped the root layout in `ClerkProvider` with `/sign-in` and `/sign-up` routes.
+- Added protected-first `proxy.ts` route protection with public root, sign-in, and sign-up paths.
+- Added minimal dark sign-in and sign-up pages with two-panel desktop layouts and form-only mobile layouts.
+- Moved the editor workspace to `/editor` and changed `/` to redirect authenticated users to `/editor` and unauthenticated users to `/sign-in`.
+- Added Clerk's built-in `UserButton` to the editor navbar.
+- Verified `npm.cmd run lint` and `npm.cmd run build`.
+- Refined the auth pages to use a 50/50 desktop split with a branded left panel, feature rows, centered Clerk form, and explicit Geist font styling across the app shell and Clerk elements.
+- Re-verified `npm.cmd run lint` and `npm.cmd run build`.
+- Added root body hydration warning suppression for browser-extension-injected attributes such as `cz-shortcut-listen`.
+- Re-verified `npm.cmd run lint` and `npm.cmd run build`.
+- Fixed Clerk sign-out to redirect directly to the configured sign-in route.
+- Narrowed the Clerk auth form card so the right-side sign-in panel matches the intended 50/50 layout proportions.
+- Moved the editor navbar profile avatar to the absolute right edge, reduced navbar padding, and centered navbar controls vertically.
+- Removed the decorative brand strip from the auth left panel and tightened auth/root wrappers to full-width, overflow-hidden backgrounds.
 
 ## Open Questions
 
