@@ -1,11 +1,7 @@
 import type { ClerkAppearanceTheme } from "@clerk/shared/types"
 import { dark } from "@clerk/ui/themes"
 
-type Appearance = ClerkAppearanceTheme & {
-  userProfile?: ClerkAppearanceTheme
-}
-
-export const clerkAppearance: Appearance = {
+export const clerkAppearance: ClerkAppearanceTheme = {
   theme: dark,
   variables: {
     colorBackground: "var(--bg-surface)",
@@ -72,37 +68,40 @@ export const clerkAppearance: Appearance = {
       fontWeight: "600",
     },
   },
-  userProfile: {
-    elements: {
-      rootBox: {
-        width: "auto",
-      },
-      modalContent: {
-        width: "min(calc(100vw - 2rem), 56rem)",
-      },
-      cardBox: {
-        boxShadow: "none",
-        width: "min(calc(100vw - 2rem), 56rem)",
-      },
-      card: {
-        backgroundColor: "var(--bg-surface)",
-        border: "1px solid var(--border-default)",
-        width: "100%",
-      },
-      navbar: {
-        backgroundColor: "var(--bg-elevated)",
-        borderRight: "1px solid var(--border-default)",
-        flex: "0 0 17rem",
-      },
-      pageScrollBox: {
-        overflowX: "hidden",
-      },
-      profilePage: {
-        minWidth: "0",
-      },
-      profileSectionContent: {
-        minWidth: "0",
-      },
+}
+
+export const userProfileAppearance: ClerkAppearanceTheme = {
+  theme: dark,
+  variables: clerkAppearance.variables,
+  elements: {
+    rootBox: {
+      width: "auto",
+    },
+    modalContent: {
+      width: "min(calc(100vw - 2rem), 56rem)",
+    },
+    cardBox: {
+      boxShadow: "none",
+      width: "min(calc(100vw - 2rem), 56rem)",
+    },
+    card: {
+      backgroundColor: "var(--bg-surface)",
+      border: "1px solid var(--border-default)",
+      width: "100%",
+    },
+    navbar: {
+      backgroundColor: "var(--bg-elevated)",
+      borderRight: "1px solid var(--border-default)",
+      flex: "0 0 17rem",
+    },
+    pageScrollBox: {
+      overflowX: "hidden",
+    },
+    profilePage: {
+      minWidth: "0",
+    },
+    profileSectionContent: {
+      minWidth: "0",
     },
   },
 }

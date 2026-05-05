@@ -4,6 +4,7 @@ import { UserButton } from "@clerk/nextjs"
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { userProfileAppearance } from "@/lib/clerk-appearance"
 
 interface EditorNavbarProps {
   isSidebarOpen: boolean
@@ -35,7 +36,7 @@ export function EditorNavbar({
         <span className="text-sm font-medium text-copy-secondary">Ghost AI</span>
       </div>
       <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center">
-        <UserButton />
+        <UserButton userProfileProps={{ appearance: userProfileAppearance }} />
       </div>
     </header>
   )
