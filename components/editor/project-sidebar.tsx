@@ -34,17 +34,17 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Close projects sidebar"
-        className={cn(
-          "fixed inset-0 z-30 bg-base/70 backdrop-blur-xs transition-opacity md:hidden",
-          isOpen ? "opacity-100" : "pointer-events-none opacity-0"
-        )}
-        onClick={onClose}
-      />
+      {isOpen && (
+        <button
+          type="button"
+          aria-label="Close projects sidebar"
+          className="fixed inset-0 z-30 bg-base/70 backdrop-blur-xs md:hidden"
+          onClick={onClose}
+        />
+      )}
       <aside
         aria-hidden={!isOpen}
+        inert={!isOpen}
         className={cn(
           "fixed left-4 top-18 bottom-4 z-40 flex w-[min(20rem,calc(100vw-2rem))] flex-col rounded-2xl border border-surface-border bg-sidebar/95 p-4 shadow-2xl shadow-base/40 backdrop-blur transition-transform duration-200 ease-out",
           isOpen ? "translate-x-0" : "-translate-x-[calc(100%+2rem)]"

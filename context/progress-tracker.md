@@ -51,6 +51,7 @@
 - Added a mobile sidebar backdrop scrim that closes the sidebar when tapped outside.
 - Verified `npm.cmd run lint` and `npm.cmd run build`.
 - Centered the editor home empty-state group in the remaining canvas area by making the home surface fill the editor body and removing vertical padding offset.
+- Fixed the closed project sidebar focus order by unmounting the mobile backdrop while closed and marking the hidden sidebar inert.
 
 ## Open Questions
 
