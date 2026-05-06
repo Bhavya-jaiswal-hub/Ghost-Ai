@@ -3,6 +3,7 @@
 ## Current Phase
 
 - Complete: `context/feature-specs/03-auth.md`
+- Complete: `context/feature-specs/04-project-dialogs.md`
 
 ## Completed Work
 
@@ -41,6 +42,15 @@
 - Moved the editor navbar profile avatar to the absolute right edge, reduced navbar padding, and centered navbar controls vertically.
 - Removed the decorative brand strip from the auth left panel and tightened auth/root wrappers to full-width, overflow-hidden backgrounds.
 - Split UserProfile-specific Clerk appearance overrides out of the provider appearance and passed them through `UserButton` profile props so the built-in manage account modal keeps its wider two-column layout.
+- Read `context/feature-specs/04-project-dialogs.md` and started the project dialogs/editor home implementation.
+- Added a dedicated project dialog hook for mock project data, dialog state, form state, slug previews, and loading state.
+- Added a project dialog provider that wires Create, Rename, and Delete Project dialogs without API calls or persistence.
+- Added the `/editor` home screen with the specified heading, description, and `New Project` button.
+- Wired editor home create, sidebar create, sidebar rename, and sidebar delete actions to the dialog controller.
+- Added mock owned and shared project sidebar lists, showing rename/delete actions only for owned projects.
+- Added a mobile sidebar backdrop scrim that closes the sidebar when tapped outside.
+- Verified `npm.cmd run lint` and `npm.cmd run build`.
+- Centered the editor home empty-state group in the remaining canvas area by making the home surface fill the editor body and removing vertical padding offset.
 
 ## Open Questions
 
