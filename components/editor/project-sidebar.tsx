@@ -114,7 +114,8 @@ function ProjectList({ projects, onRename, onDelete }: ProjectListProps) {
       {projects.map((project) => (
         <div
           key={project.id}
-          className="group flex items-center gap-2 rounded-xl border border-surface-border bg-elevated/70 p-3"
+          tabIndex={project.owned ? 0 : undefined}
+          className="group flex items-center gap-2 rounded-xl border border-surface-border bg-elevated/70 p-3 outline-none transition-colors focus-visible:border-border-subtle"
         >
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-sm font-medium text-copy-primary">
@@ -126,7 +127,7 @@ function ProjectList({ projects, onRename, onDelete }: ProjectListProps) {
             <p className="mt-2 text-xs text-copy-faint">{project.updatedAt}</p>
           </div>
           {project.owned && onRename && onDelete && (
-            <div className="flex items-center gap-1">
+            <div className="invisible flex w-16 shrink-0 items-center justify-end gap-1 opacity-0 transition-[opacity,visibility] duration-150 ease-out group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
               <Button
                 type="button"
                 variant="ghost"
