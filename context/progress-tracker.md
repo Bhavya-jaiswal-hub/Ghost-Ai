@@ -1,62 +1,34 @@
 # Progress Tracker
 
+Update this file whenever the current phase, active feature, or implementation state changes.
+
 ## Current Phase
 
-- Complete: `context/feature-specs/03-auth.md`
-- Complete: `context/feature-specs/04-project-dialogs.md`
+- Feature 04: Project Dialogs
 
-## Completed Work
+## Current Goal
 
-- Read project, architecture, UI, code standards, AI workflow, and design-system context.
-- Initialized shadcn/ui with the Next.js Nova preset.
-- Generated initial `components/ui/button.tsx` and `lib/utils.ts` through the shadcn CLI.
-- Added `card`, `dialog`, `input`, `tabs`, `textarea`, and `scroll-area` through the shadcn CLI.
-- Confirmed `lucide-react` is installed.
-- Aligned `globals.css` with the dark-only Ghost AI design tokens and mapped shadcn variables to the same palette.
-- Applied the root `dark` class in `app/layout.tsx`.
-- Verified lint, TypeScript, `cn()` class merging, and production build.
-- Read `context/feature-specs/02-editor.md` and started the editor chrome implementation.
-- Added `components/editor/editor-navbar.tsx` with left/center/right sections and a sidebar toggle using `PanelLeftOpen` / `PanelLeftClose`.
-- Added `components/editor/project-sidebar.tsx` as a floating, slide-in project sidebar with tabs, empty states, close action, and a full-width `New Project` button.
-- Wired the editor chrome into `app/page.tsx` with local sidebar state.
-- Updated the existing dialog primitives to use Ghost AI color tokens, `rounded-3xl` modal styling, title/description support, and footer actions.
-- Verified `npm.cmd run lint` and `npm.cmd run build`.
-- Added `components/editor/editor-layout.tsx` so the editor navbar and project sidebar are composed in a reusable layout shell.
-- Refactored `app/page.tsx` to render its content inside `EditorLayout`.
-- Read `context/feature-specs/03-auth.md` and started the Clerk auth implementation.
-- Installed `@clerk/ui` for Clerk's dark base theme support.
-- Added shared auth route constants that use Clerk's standard public URL env vars with local auth route fallbacks.
-- Added shared Clerk appearance configuration using existing Ghost AI CSS variables.
-- Wrapped the root layout in `ClerkProvider` with `/sign-in` and `/sign-up` routes.
-- Added protected-first `proxy.ts` route protection with public root, sign-in, and sign-up paths.
-- Added minimal dark sign-in and sign-up pages with two-panel desktop layouts and form-only mobile layouts.
-- Moved the editor workspace to `/editor` and changed `/` to redirect authenticated users to `/editor` and unauthenticated users to `/sign-in`.
-- Added Clerk's built-in `UserButton` to the editor navbar.
-- Verified `npm.cmd run lint` and `npm.cmd run build`.
-- Refined the auth pages to use a 50/50 desktop split with a branded left panel, feature rows, centered Clerk form, and explicit Geist font styling across the app shell and Clerk elements.
-- Re-verified `npm.cmd run lint` and `npm.cmd run build`.
-- Added root body hydration warning suppression for browser-extension-injected attributes such as `cz-shortcut-listen`.
-- Re-verified `npm.cmd run lint` and `npm.cmd run build`.
-- Fixed Clerk sign-out to redirect directly to the configured sign-in route.
-- Narrowed the Clerk auth form card so the right-side sign-in panel matches the intended 50/50 layout proportions.
-- Moved the editor navbar profile avatar to the absolute right edge, reduced navbar padding, and centered navbar controls vertically.
-- Removed the decorative brand strip from the auth left panel and tightened auth/root wrappers to full-width, overflow-hidden backgrounds.
-- Split UserProfile-specific Clerk appearance overrides out of the provider appearance and passed them through `UserButton` profile props so the built-in manage account modal keeps its wider two-column layout.
-- Read `context/feature-specs/04-project-dialogs.md` and started the project dialogs/editor home implementation.
-- Added a dedicated project dialog hook for mock project data, dialog state, form state, slug previews, and loading state.
-- Added a project dialog provider that wires Create, Rename, and Delete Project dialogs without API calls or persistence.
-- Added the `/editor` home screen with the specified heading, description, and `New Project` button.
-- Wired editor home create, sidebar create, sidebar rename, and sidebar delete actions to the dialog controller.
-- Added mock owned and shared project sidebar lists, showing rename/delete actions only for owned projects.
-- Added a mobile sidebar backdrop scrim that closes the sidebar when tapped outside.
-- Verified `npm.cmd run lint` and `npm.cmd run build`.
-- Centered the editor home empty-state group in the remaining canvas area by making the home surface fill the editor body and removing vertical padding offset.
-- Fixed the closed project sidebar focus order by unmounting the mobile backdrop while closed and marking the hidden sidebar inert.
+- Build the /editor Home screen with New Project CTA, implement Create/Rename/Delete Project dialogs, and add sidebar project item actions (rename/delete for owned projects) backed by mock data.
+
+
+## Completed
+
+Feature 01: Design System — shadcn/ui installed and configured for Tailwind v4, dark-only theme tokens in globals.css, Button/Card/Dialog/Input/Tabs/Textarea/ScrollArea components added to components/ui/, lucide-react installed, lib/utils.ts cn() helper in place. TypeScript compiles clean.
+
+Feature 02: Editor Chrome — EditorNavbar (fixed top bar with PanelLeftOpen/PanelLeftClose toggle) and ProjectSidebar (fixed overlay, slides from left, Projects title + close button, My Projects/Shared tabs with empty states, New Project button) added to components/editor/. Dialog pattern confirmed ready via existing components/ui/dialog.tsx. TypeScript and ESLint clean.
+
+Feature 03: Auth — @clerk/ui installed. ClerkProvider wraps root layout with dark theme from @clerk/ui/themes, overriding appearance variables using CSS tokens (no hardcoded colors). proxy.ts at project root uses clerkMiddleware + createRouteMatcher to protect all routes except /sign-in and /sign-up (resolved from NEXT_PUBLIC_CLERK_SIGN_IN_URL / NEXT_PUBLIC_CLERK_SIGN_UP_URL env vars). Sign-in and sign-up pages use a minimal two-panel layout (left panel with logo/tagline/feature list hidden on mobile, right panel with centered Clerk form). app/page.tsx redirects authenticated users to /editor and unauthenticated users to /sign-in. UserButton added to EditorNavbar right section. app/editor/page.tsx shell created with sidebar state management.
+
+Feature 04: Project Dialogs — hooks/use-project-dialogs.ts manages dialog/form/loading state and mock project data (CRUD operations on local state). components/editor/project-dialogs.tsx renders Create (name + live slug preview), Rename (prefilled, auto-focus, Enter submits), and Delete (destructive confirm) dialogs. ProjectSidebar updated with project item list showing rename/delete actions on hover/focus for owned projects only, shared projects shown without actions, mobile backdrop scrim added. app/editor/page.tsx updated with centered home screen (heading, description, New Project button) wired to Create dialog. TypeScript and ESLint clean.
+
+## In Progress 
+
+- None. 
 
 ## Open Questions
 
 - None.
 
 ## Next Steps
-
-- Move to the next feature spec.
+  
+- Move to the next feature specs.
