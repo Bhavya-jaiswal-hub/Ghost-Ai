@@ -1,14 +1,13 @@
-# Progress Tracker
-
+# Progress Tracker- None.
 Update this file whenever the current phase, active feature, or implementation state changes.
 
 ## Current Phase
 
-- Feature 04: Project Dialogs
+- Feature 05: Prisma
 
 ## Current Goal
 
-- Build the /editor Home screen with New Project CTA, implement Create/Rename/Delete Project dialogs, and add sidebar project item actions (rename/delete for owned projects) backed by mock data.
+- Feature 05 complete; ready to move to the next feature spec.
 
 
 ## Completed
@@ -21,9 +20,10 @@ Feature 03: Auth — @clerk/ui installed. ClerkProvider wraps root layout with d
 
 Feature 04: Project Dialogs — hooks/use-project-dialogs.ts manages dialog/form/loading state and mock project data (CRUD operations on local state). components/editor/project-dialogs.tsx renders Create (name + live slug preview), Rename (prefilled, auto-focus, Enter submits), and Delete (destructive confirm) dialogs. ProjectSidebar updated with project item list showing rename/delete actions on hover/focus for owned projects only, shared projects shown without actions, mobile backdrop scrim added. app/editor/page.tsx updated with centered home screen (heading, description, New Project button) wired to Create dialog. TypeScript and ESLint clean.
 
-## In Progress 
+Feature 05: Prisma — prisma/models/project.prisma added with Project and ProjectCollaborator models, ProjectStatus enum, cascade collaborator deletion, owner/date/email/project-date indexes, and project/email collaborator unique constraint. lib/prisma.ts added as a cached singleton that uses Prisma Accelerate for prisma+postgres:// URLs and @prisma/adapter-pg for direct PostgreSQL URLs. prisma.config.ts now loads Next-compatible env files for CLI access. Migrations 20260507070217_add_project_models and 20260507070410_use_collaborator_unique_constraint applied. Prisma Client generated. Production build passes.
 
-- None. 
+## In Progress
+- None.
 
 ## Open Questions
 
@@ -31,4 +31,4 @@ Feature 04: Project Dialogs — hooks/use-project-dialogs.ts manages dialog/form
 
 ## Next Steps
   
-- Move to the next feature specs.
+- Move to the next feature spec.
