@@ -17,36 +17,10 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  type MockProject,
-  useProjectDialogs,
-} from "@/components/editor/use-project-dialogs"
+import { type EditorProject } from "@/lib/project-data"
+import { useProjectActions } from "@/hooks/use-project-actions"
 
-const MOCK_PROJECTS: MockProject[] = [
-  {
-    id: "owned-payments",
-    name: "Payments Platform",
-    slug: "payments-platform",
-    owned: true,
-    updatedAt: "Updated 2h ago",
-  },
-  {
-    id: "owned-observability",
-    name: "Observability Mesh",
-    slug: "observability-mesh",
-    owned: true,
-    updatedAt: "Updated yesterday",
-  },
-  {
-    id: "shared-inventory",
-    name: "Inventory Sync",
-    slug: "inventory-sync",
-    owned: false,
-    updatedAt: "Shared 3d ago",
-  },
-]
-
-type ProjectDialogController = ReturnType<typeof useProjectDialogs>
+type ProjectDialogController = ReturnType<typeof useProjectActions>
 
 const ProjectDialogContext = createContext<ProjectDialogController | null>(null)
 
@@ -64,12 +38,16 @@ export function useProjectDialogController() {
 
 interface ProjectDialogProviderProps {
   children: ReactNode
+  ownedProjects: EditorProject[]
+  sharedProjects: EditorProject[]
 }
 
 export function ProjectDialogProvider({
   children,
+  ownedProjects,
+  sharedProjects,
 }: ProjectDialogProviderProps) {
-  const controller = useProjectDialogs(MOCK_PROJECTS)
+  const controller = useProjectActions({ ownedProjects, sharedProjects })
 
   return (
     <ProjectDialogContext.Provider value={controller}>
@@ -84,8 +62,9 @@ function ProjectDialogs() {
     dialogMode,
     projectName,
     selectedProject,
-    slugPreview,
+    roomIdPreview,
     isLoading,
+    errorMessage,
     setProjectName,
     closeDialog,
     submitCreateProject,
@@ -138,12 +117,21 @@ function ProjectDialogs() {
             </label>
             <div className="rounded-xl border border-surface-border bg-surface px-3 py-2">
               <p className="text-xs font-medium uppercase tracking-normal text-copy-faint">
-                Slug preview
+                Room ID preview
               </p>
-              <p className="mt-1 font-mono text-sm text-brand">{slugPreview}</p>
+              <p className="mt-1 break-all font-mono text-sm text-brand">
+                {roomIdPreview}
+              </p>
             </div>
+            {errorMessage && (
+              <p className="text-sm text-state-error">{errorMessage}</p>
+            )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => closeDialog()}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
@@ -171,8 +159,15 @@ function ProjectDialogs() {
                 autoFocus
               />
             </label>
+            {errorMessage && (
+              <p className="text-sm text-state-error">{errorMessage}</p>
+            )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => closeDialog()}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
@@ -189,12 +184,19 @@ function ProjectDialogs() {
             <DialogHeader>
               <DialogTitle>Delete Project</DialogTitle>
               <DialogDescription>
-                Delete {selectedProject?.name ?? "this project"} from your mock
-                project list.
+                Delete {selectedProject?.name ?? "this project"} from your
+                projects.
               </DialogDescription>
             </DialogHeader>
+            {errorMessage && (
+              <p className="text-sm text-state-error">{errorMessage}</p>
+            )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => closeDialog()}
+              >
                 Cancel
               </Button>
               <Button type="submit" variant="destructive" disabled={isLoading}>
