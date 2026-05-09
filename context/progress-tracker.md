@@ -26,6 +26,10 @@ Feature 06: Project APIs - backend-only REST route handlers added for GET/POST `
 
 Feature 07: Wire Editor Home - editor home now fetches owned/shared projects server-side through `lib/project-data.ts` and passes serializable lists into the client editor shell. Mock project state was replaced by `hooks/use-project-actions.ts`, which manages create/rename/delete dialogs, room ID previews, API mutations, refresh/redirect behavior, and navigation to `/editor/{projectId}` after create. `POST /api/projects` now accepts a validated room-safe project ID so project IDs and Liveblocks room IDs stay aligned. Sidebar and dialogs render real project data. ESLint clean and production build passes.
 
+Project API hardening: PATCH/DELETE `/api/projects/[projectId]` now convert Prisma record-not-found races after ownership checks into `404 Not Found` responses instead of leaking as server errors. ESLint clean and production build passes.
+
+Project action dialog fix: successful rename/delete project mutations now force-reset dialog state even while the mutation loading flag is still true, preserving the loading guard for user-initiated dialog closes. ESLint clean and production build passes.
+
 ## In Progress
 
 - None.

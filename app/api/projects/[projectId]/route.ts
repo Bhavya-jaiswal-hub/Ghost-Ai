@@ -27,6 +27,15 @@ function jsonError(message: string, status: number) {
   return Response.json({ error: message }, { status });
 }
 
+function isPrismaRecordNotFoundError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2025"
+  );
+}
+
 function serializeProject(project: {
   id: string;
   ownerId: string;
@@ -112,14 +121,24 @@ export async function PATCH(request: Request, context: ProjectRouteContext) {
     return authorizedProject.error;
   }
 
-  const project = await prisma.project.update({
-    where: {
-      id: projectId,
-    },
-    data: {
-      name: parsedBody.data.name,
-    },
-  });
+  let project;
+
+  try {
+    project = await prisma.project.update({
+      where: {
+        id: projectId,
+      },
+      data: {
+        name: parsedBody.data.name,
+      },
+    });
+  } catch (error) {
+    if (isPrismaRecordNotFoundError(error)) {
+      return jsonError("Not Found", 404);
+    }
+
+    throw error;
+  }
 
   return Response.json({
     project: serializeProject(project),
@@ -140,11 +159,19 @@ export async function DELETE(_request: Request, context: ProjectRouteContext) {
     return authorizedProject.error;
   }
 
-  await prisma.project.delete({
-    where: {
-      id: projectId,
-    },
-  });
+  try {
+    await prisma.project.delete({
+      where: {
+        id: projectId,
+      },
+    });
+  } catch (error) {
+    if (isPrismaRecordNotFoundError(error)) {
+      return jsonError("Not Found", 404);
+    }
+
+    throw error;
+  }
 
   return Response.json({
     projectId,

@@ -190,6 +190,8 @@ prisma migrate dev --config ./config/prisma.config.ts
 import 'dotenv/config'
 import { defineConfig, env } from 'prisma/config'
 import path from 'path'
+import { fileURLToPath } from 'node:url'
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   schema: path.join(__dirname, 'packages/database/prisma/schema.prisma'),

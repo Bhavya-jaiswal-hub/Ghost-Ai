@@ -73,8 +73,8 @@ export function useProjectActions({
     return `${createProjectSlug(projectName)}-${createSuffix}`
   }, [createSuffix, projectName])
 
-  function closeDialog() {
-    if (isLoading) {
+  function closeDialog(force = false) {
+    if (isLoading && !force) {
       return
     }
 
@@ -115,6 +115,7 @@ export function useProjectActions({
   }
 
   async function submitCreateProject() {
+    if (isLoading) return
     setIsLoading(true)
     setErrorMessage(null)
 
@@ -141,6 +142,7 @@ export function useProjectActions({
   }
 
   async function submitRenameProject() {
+    if (isLoading) return
     if (!selectedProject?.owned) {
       return
     }
@@ -159,7 +161,7 @@ export function useProjectActions({
       })
 
       await readProjectResponse(response)
-      closeDialog()
+      closeDialog(true)
       router.refresh()
     } catch (error) {
       setErrorMessage(
@@ -171,6 +173,7 @@ export function useProjectActions({
   }
 
   async function submitDeleteProject() {
+    if (isLoading) return
     if (!selectedProject?.owned) {
       return
     }
@@ -185,7 +188,7 @@ export function useProjectActions({
 
       await readProjectResponse(response)
       const activeWorkspacePath = `/editor/${selectedProject.id}`
-      closeDialog()
+      closeDialog(true)
 
       if (pathname === activeWorkspacePath) {
         router.replace("/editor")

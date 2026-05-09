@@ -127,7 +127,11 @@ function ProjectDialogs() {
               <p className="text-sm text-state-error">{errorMessage}</p>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => closeDialog()}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
@@ -159,7 +163,11 @@ function ProjectDialogs() {
               <p className="text-sm text-state-error">{errorMessage}</p>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => closeDialog()}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
@@ -184,7 +192,11 @@ function ProjectDialogs() {
               <p className="text-sm text-state-error">{errorMessage}</p>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => closeDialog()}
+              >
                 Cancel
               </Button>
               <Button type="submit" variant="destructive" disabled={isLoading}>

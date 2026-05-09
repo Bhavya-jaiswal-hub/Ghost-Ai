@@ -71,8 +71,9 @@ npm install -D dotenv-cli
 // prisma.config.ts
 import { config } from 'dotenv'
 import path from 'path'
-
+import { fileURLToPath } from 'node:url'
 // Load specific .env file
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 config({ path: path.join(__dirname, '.env.local') })
 
 import { defineConfig, env } from 'prisma/config'
