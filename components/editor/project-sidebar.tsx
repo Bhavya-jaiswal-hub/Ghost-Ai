@@ -5,7 +5,7 @@ import { Pencil, Plus, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useProjectDialogController } from "@/components/editor/project-dialog-provider"
-import { type MockProject } from "@/components/editor/use-project-dialogs"
+import { type EditorProject } from "@/lib/project-data"
 import { cn } from "@/lib/utils"
 
 interface ProjectSidebarProps {
@@ -23,14 +23,12 @@ function EmptyProjectState({ label }: { label: string }) {
 
 export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
   const {
-    projects,
+    ownedProjects,
+    sharedProjects,
     openCreateDialog,
     openRenameDialog,
     openDeleteDialog,
   } = useProjectDialogController()
-
-  const ownedProjects = projects.filter((project) => project.owned)
-  const sharedProjects = projects.filter((project) => !project.owned)
 
   return (
     <>
@@ -103,9 +101,9 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
 }
 
 interface ProjectListProps {
-  projects: MockProject[]
-  onRename?: (project: MockProject) => void
-  onDelete?: (project: MockProject) => void
+  projects: EditorProject[]
+  onRename?: (project: EditorProject) => void
+  onDelete?: (project: EditorProject) => void
 }
 
 function ProjectList({ projects, onRename, onDelete }: ProjectListProps) {
@@ -122,7 +120,7 @@ function ProjectList({ projects, onRename, onDelete }: ProjectListProps) {
               {project.name}
             </h3>
             <p className="mt-1 truncate font-mono text-xs text-copy-muted">
-              {project.slug}
+              {project.id}
             </p>
             <p className="mt-2 text-xs text-copy-faint">{project.updatedAt}</p>
           </div>
