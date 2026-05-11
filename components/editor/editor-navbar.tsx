@@ -1,7 +1,12 @@
 "use client"
 
 import { UserButton } from "@clerk/nextjs"
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import {
+  Bot,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Share2,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { userProfileAppearance } from "@/lib/clerk-appearance"
@@ -9,11 +14,21 @@ import { userProfileAppearance } from "@/lib/clerk-appearance"
 interface EditorNavbarProps {
   isSidebarOpen: boolean
   onToggleSidebar: () => void
+  projectName?: string
+  showWorkspaceActions?: boolean
+  isAiSidebarOpen?: boolean
+  onOpenShareDialog?: () => void
+  onToggleAiSidebar?: () => void
 }
 
 export function EditorNavbar({
   isSidebarOpen,
   onToggleSidebar,
+  projectName = "Ghost AI",
+  showWorkspaceActions = false,
+  isAiSidebarOpen = false,
+  onOpenShareDialog,
+  onToggleAiSidebar,
 }: EditorNavbarProps) {
   const SidebarIcon = isSidebarOpen ? PanelLeftClose : PanelLeftOpen
 
@@ -33,9 +48,36 @@ export function EditorNavbar({
         </Button>
       </div>
       <div className="absolute left-1/2 flex -translate-x-1/2 items-center">
-        <span className="text-sm font-medium text-copy-secondary">Ghost AI</span>
+        <span className="max-w-[40vw] truncate text-sm font-medium text-copy-secondary">
+          {projectName}
+        </span>
       </div>
-      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center">
+      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+        {showWorkspaceActions && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Share project"
+              onClick={() => onOpenShareDialog?.()}
+            >
+              <Share2 className="h-5 w-5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={
+                isAiSidebarOpen ? "Close AI sidebar" : "Open AI sidebar"
+              }
+              aria-pressed={isAiSidebarOpen}
+              onClick={() => onToggleAiSidebar?.()}
+            >
+              <Bot className="h-5 w-5" />
+            </Button>
+          </>
+        )}
         <UserButton userProfileProps={{ appearance: userProfileAppearance }} />
       </div>
     </header>

@@ -127,6 +127,7 @@ export async function PATCH(request: Request, context: ProjectRouteContext) {
     project = await prisma.project.update({
       where: {
         id: projectId,
+        ownerId: userId,
       },
       data: {
         name: parsedBody.data.name,
@@ -146,9 +147,9 @@ export async function PATCH(request: Request, context: ProjectRouteContext) {
 }
 
 export async function DELETE(_request: Request, context: ProjectRouteContext) {
-  const { isAuthenticated, userId } = await auth();
-
-  if (!isAuthenticated || !userId) {
+  
+ const { userId } = await auth();
+  if (!userId) {
     return jsonError("Unauthorized", 401);
   }
 
@@ -163,6 +164,7 @@ export async function DELETE(_request: Request, context: ProjectRouteContext) {
     await prisma.project.delete({
       where: {
         id: projectId,
+        ownerId: userId,
       },
     });
   } catch (error) {

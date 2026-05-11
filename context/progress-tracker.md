@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Feature 07: Wire Editor Home
+- Feature 09: Share Dialog
 
 ## Current Goal
 
-- Feature 07 complete; editor home uses real project data and mutations.
+- Feature 09 complete; share dialog shows the project owner and collaborators for every project member.
 
 ## Completed
 
@@ -29,6 +29,16 @@ Feature 07: Wire Editor Home - editor home now fetches owned/shared projects ser
 Project API hardening: PATCH/DELETE `/api/projects/[projectId]` now convert Prisma record-not-found races after ownership checks into `404 Not Found` responses instead of leaking as server errors. ESLint clean and production build passes.
 
 Project action dialog fix: successful rename/delete project mutations now force-reset dialog state even while the mutation loading flag is still true, preserving the loading guard for user-initiated dialog closes. ESLint clean and production build passes.
+
+Feature 08: Editor Workspace Shell - `/editor/[roomId]` is implemented as a server component route with Clerk authentication redirecting unauthenticated users to `/sign-in`. `lib/project-access.ts` centralizes current identity lookup and project access checks by owner or primary-email collaborator. Missing and unauthorized projects render `AccessDenied`. The workspace shell shows the current project name in the navbar, share and AI sidebar toggle actions, the existing project sidebar with the active room highlighted and project navigation links, a central canvas placeholder, and a right AI sidebar placeholder. ESLint clean and production build passes.
+
+Feature 08 layout polish: workspace placeholder content now receives project-sidebar open state from `EditorLayout` and applies desktop-only left spacing while the projects overlay is open, keeping the canvas placeholder centered in the visible workspace when both sidebars are expanded.
+
+Feature 09: Share Dialog - workspace Share button now opens a centered share dialog. Owners can copy the project link with temporary `Copied!` feedback, invite collaborators by normalized email, view Clerk-enriched collaborator names/avatars when available, and remove collaborators. Collaborators can open the dialog in read-only mode and view the collaborator list only. Added authenticated collaborator API route at `/api/projects/[projectId]/collaborators` with GET/POST/DELETE handlers, owner-only invite/remove enforcement, and database-backed collaborator storage without a local user table. ESLint clean and production build passes.
+
+Feature 09 owner visibility follow-up: share responses now include the project owner from Clerk user data alongside collaborator rows. The share dialog renders a `People with access` list with the owner first, role badges for owner/collaborator, owner avatar/name/email when Clerk returns them, and collaborator remove controls only on collaborator rows. Owner rows appear for both project owners and read-only collaborators. ESLint clean and production build passes.
+
+Build syntax fix: repaired malformed `collaboratorFilter` syntax in `lib/project-data.ts`, typed the Prisma project filter so case-insensitive email matching satisfies generated Prisma types, and repaired malformed braces in `lib/project-collaborators.ts`. ESLint clean and production build passes.
 
 ## In Progress
 

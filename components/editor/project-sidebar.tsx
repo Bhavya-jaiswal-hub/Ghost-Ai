@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils"
 interface ProjectSidebarProps {
   isOpen: boolean
   onClose: () => void
+  activeProjectId?: string
 }
 
 function EmptyProjectState({ label }: { label: string }) {
@@ -21,7 +23,11 @@ function EmptyProjectState({ label }: { label: string }) {
   )
 }
 
-export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
+export function ProjectSidebar({
+  isOpen,
+  onClose,
+  activeProjectId,
+}: ProjectSidebarProps) {
   const {
     ownedProjects,
     sharedProjects,
@@ -70,6 +76,8 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
             {ownedProjects.length > 0 ? (
               <ProjectList
                 projects={ownedProjects}
+                activeProjectId={activeProjectId}
+                onNavigate={onClose}
                 onRename={openRenameDialog}
                 onDelete={openDeleteDialog}
               />
@@ -79,7 +87,11 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
           </TabsContent>
           <TabsContent value="shared" className="mt-3 flex min-h-0">
             {sharedProjects.length > 0 ? (
-              <ProjectList projects={sharedProjects} />
+              <ProjectList
+                projects={sharedProjects}
+                activeProjectId={activeProjectId}
+                onNavigate={onClose}
+              />
             ) : (
               <EmptyProjectState label="No shared projects yet." />
             )}
@@ -102,20 +114,37 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
 
 interface ProjectListProps {
   projects: EditorProject[]
+  activeProjectId?: string
+  onNavigate: () => void
   onRename?: (project: EditorProject) => void
   onDelete?: (project: EditorProject) => void
 }
 
-function ProjectList({ projects, onRename, onDelete }: ProjectListProps) {
+function ProjectList({
+  projects,
+  activeProjectId,
+  onNavigate,
+  onRename,
+  onDelete,
+}: ProjectListProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
       {projects.map((project) => (
         <div
           key={project.id}
           tabIndex={project.owned ? 0 : undefined}
-          className="group flex items-center gap-2 rounded-xl border border-surface-border bg-elevated/70 p-3 outline-none transition-colors focus-visible:border-border-subtle"
+          className={cn(
+            "group flex items-center gap-2 rounded-xl border bg-elevated/70 p-3 outline-none transition-colors focus-visible:border-border-subtle",
+            project.id === activeProjectId
+              ? "border-brand bg-accent-dim"
+              : "border-surface-border"
+          )}
         >
-          <div className="min-w-0 flex-1">
+          <Link
+            href={`/editor/${project.id}`}
+            className="min-w-0 flex-1 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            onClick={onNavigate}
+          >
             <h3 className="truncate text-sm font-medium text-copy-primary">
               {project.name}
             </h3>
@@ -123,7 +152,7 @@ function ProjectList({ projects, onRename, onDelete }: ProjectListProps) {
               {project.id}
             </p>
             <p className="mt-2 text-xs text-copy-faint">{project.updatedAt}</p>
-          </div>
+          </Link>
           {project.owned && onRename && onDelete && (
             <div className="invisible flex w-16 shrink-0 items-center justify-end gap-1 opacity-0 transition-[opacity,visibility] duration-150 ease-out group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
               <Button
