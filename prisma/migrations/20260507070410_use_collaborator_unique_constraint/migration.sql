@@ -2,4 +2,4 @@
 ALTER TABLE "ProjectCollaborator" DROP CONSTRAINT "ProjectCollaborator_pkey";
 
 -- CreateIndex
-ALTER TABLE "ProjectCollaborator" ADD CONSTRAINT "ProjectCollaborator_pkey" PRIMARY KEY ("projectId", "email");
+CREATE UNIQUE INDEX "ProjectCollaborator_projectId_email_key" ON "ProjectCollaborator"("projectId", "email");

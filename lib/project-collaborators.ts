@@ -102,11 +102,16 @@ export async function getProjectShareAccess(
     }
   }
 
-  const collaboratorCount = identity.primaryEmail
+  const normalizedPrimaryEmail = identity.primaryEmail
+    ? normalizeCollaboratorEmail(identity.primaryEmail)
+     
+      :null
+
+  const collaboratorCount = normalizedPrimaryEmail
     ? await prisma.projectCollaborator.count({
         where: {
           projectId,
-          email: identity.primaryEmail,
+           email: normalizedPrimaryEmail,
         },
       })
     : 0

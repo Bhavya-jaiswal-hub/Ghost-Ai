@@ -52,6 +52,8 @@ Issue 001 shape rendering fix: canvas nodes now render shape-specific geometry f
 
 Issue 002 overlay layout fix: workspace panels no longer resize the canvas. The Projects sidebar remains a fixed overlay without workspace padding, the AI assistant panel now slides in as a fixed overlay with a close button, and outside workspace interaction dismisses open overlays without blocking canvas interaction. ESLint clean and production build passes.
 
+Issue 003 node ID collision fix: canvas node creation now uses `crypto.randomUUID()` for shape node IDs instead of a timestamp plus module-local counter, preventing cross-client ID collisions in shared Liveblocks state. ESLint clean and production build passes.
+
 ## In Progress
 
 - None.

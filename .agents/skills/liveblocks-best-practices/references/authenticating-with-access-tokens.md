@@ -6,7 +6,7 @@ title: "Authenticating with Access Tokens"
 
 Access tokens is a simpler method for authentication (the recommended method is
 ID tokens). Start this with
-[`identifyUser`](https://liveblocks.io/docs/api-reference/liveblocks-node#access-tokens),
+[`prepareSession`](https://liveblocks.io/docs/api-reference/liveblocks-node#prepare-session-userid-userinfo),
 before returning the `body` and `status` from your API endpoint.
 
 ```ts

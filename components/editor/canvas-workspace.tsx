@@ -59,8 +59,6 @@ interface ShapeOption {
   Icon: LucideIcon
 }
 
-let createdNodeCounter = 0
-
 const shapeOptions: ShapeOption[] = [
   { shape: "rectangle", label: "Rectangle", Icon: RectangleHorizontal },
   { shape: "diamond", label: "Diamond", Icon: Diamond },
@@ -182,9 +180,7 @@ function readShapeDragPayload(dataTransfer: DataTransfer) {
 }
 
 function createNodeId(shape: CanvasNodeShape) {
-  createdNodeCounter += 1
-
-  return `${shape}-${Date.now()}-${createdNodeCounter}`
+  return `${shape}-${crypto.randomUUID()}`
 }
 
 function getNodeStroke(selected: boolean) {
