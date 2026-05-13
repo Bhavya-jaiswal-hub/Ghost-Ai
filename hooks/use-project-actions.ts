@@ -45,10 +45,13 @@ function createShortSuffix() {
 }
 
 async function readProjectResponse(response: Response) {
-  const body = (await response.json().catch(() => ({}))) as ProjectApiResponse
+  const body = (await response.json().catch((err) => {
+    console.error("Failed to parse project response:", err)
+    return {}
+  })) as ProjectApiResponse
 
   if (!response.ok) {
-    throw new Error(body.error ?? "Project request failed.")
+    throw new Error(body.error ?? `Project request failed with status ${response.status}.`)
   }
 
   return body
@@ -122,21 +125,30 @@ export function useProjectActions({
     try {
       const name = projectName.trim() || "Untitled Project"
       const roomId = roomIdPreview
+      const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
       const response = await fetch("/api/projects", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ id: roomId, name }),
+         signal: controller.signal,
       })
+      clearTimeout(timeoutId)
       const body = await readProjectResponse(response)
+      closeDialog(true)  
 
       router.push(`/editor/${body.project?.id ?? roomId}`)
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Project request failed."
-      )
-    } finally {
+    if (error instanceof Error && error.name === 'AbortError') {
+     setErrorMessage("Request timed out. Please try again.")
+   } else {
+       setErrorMessage(
+         error instanceof Error ? error.message : "Project request failed."
+       )
+    }
+   }finally {
       setIsLoading(false)
     }
   }
@@ -152,21 +164,30 @@ export function useProjectActions({
 
     try {
       const name = projectName.trim() || selectedProject.name
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
       const response = await fetch(`/api/projects/${selectedProject.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name }),
+        signal: controller.signal,
       })
+
+       clearTimeout(timeoutId)
 
       await readProjectResponse(response)
       closeDialog(true)
       router.refresh()
     } catch (error) {
+       if (error instanceof Error && error.name === 'AbortError') {
+      setErrorMessage("Request timed out. Please try again.")
+    } else {
       setErrorMessage(
         error instanceof Error ? error.message : "Project request failed."
       )
+    }
     } finally {
       setIsLoading(false)
     }
@@ -181,10 +202,15 @@ export function useProjectActions({
     setIsLoading(true)
     setErrorMessage(null)
 
-    try {
+    try {  
+      const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
       const response = await fetch(`/api/projects/${selectedProject.id}`, {
         method: "DELETE",
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
+
 
       await readProjectResponse(response)
       const activeWorkspacePath = `/editor/${selectedProject.id}`
@@ -195,10 +221,14 @@ export function useProjectActions({
       } else {
         router.refresh()
       }
-    } catch (error) {
+    } catch (error) { 
+      if (error instanceof Error && error.name === 'AbortError') {
+      setErrorMessage("Request timed out. Please try again.")
+    } else {
       setErrorMessage(
         error instanceof Error ? error.message : "Project request failed."
       )
+    }
     } finally {
       setIsLoading(false)
     }

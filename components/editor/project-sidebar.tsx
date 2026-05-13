@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils"
 interface ProjectSidebarProps {
   isOpen: boolean
   onClose: () => void
+  activeProjectId?: string
 }
 
 function EmptyProjectState({ label }: { label: string }) {
@@ -21,7 +23,11 @@ function EmptyProjectState({ label }: { label: string }) {
   )
 }
 
-export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
+export function ProjectSidebar({
+  isOpen,
+  onClose,
+  activeProjectId,
+}: ProjectSidebarProps) {
   const {
     ownedProjects,
     sharedProjects,
@@ -70,6 +76,8 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
             {ownedProjects.length > 0 ? (
               <ProjectList
                 projects={ownedProjects}
+                activeProjectId={activeProjectId}
+                onNavigate={onClose}
                 onRename={openRenameDialog}
                 onDelete={openDeleteDialog}
               />
@@ -79,7 +87,11 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
           </TabsContent>
           <TabsContent value="shared" className="mt-3 flex min-h-0">
             {sharedProjects.length > 0 ? (
-              <ProjectList projects={sharedProjects} />
+              <ProjectList
+                projects={sharedProjects}
+                activeProjectId={activeProjectId}
+                onNavigate={onClose}
+              />
             ) : (
               <EmptyProjectState label="No shared projects yet." />
             )}
@@ -102,20 +114,48 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
 
 interface ProjectListProps {
   projects: EditorProject[]
+  activeProjectId?: string
+  onNavigate: () => void
   onRename?: (project: EditorProject) => void
   onDelete?: (project: EditorProject) => void
 }
 
-function ProjectList({ projects, onRename, onDelete }: ProjectListProps) {
+function ProjectList({
+  projects,
+  activeProjectId,
+  onNavigate,
+  onRename,
+  onDelete,
+}: ProjectListProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
       {projects.map((project) => (
         <div
           key={project.id}
-          tabIndex={project.owned ? 0 : undefined}
-          className="group flex items-center gap-2 rounded-xl border border-surface-border bg-elevated/70 p-3 outline-none transition-colors focus-visible:border-border-subtle"
+          // FIX: tabIndex always set so keyboard users can focus any card,
+          // not just owned ones — improves accessibility across both tabs.
+          tabIndex={0}
+          className={cn(
+            "group relative flex items-center gap-2 rounded-xl border bg-elevated/70 p-3 outline-none transition-colors focus-visible:border-border-subtle",
+            project.id === activeProjectId
+              ? "border-brand bg-accent-dim"
+              : "border-surface-border hover:border-border-subtle hover:bg-elevated"
+          )}
         >
-          <div className="min-w-0 flex-1">
+          {/* Link takes all available width; action buttons are absolutely
+              positioned so they NEVER push / truncate the text content. */}
+          <Link
+            href={`/editor/${project.id}`}
+            className={cn(
+              "min-w-0 flex-1 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+              // When the card is hovered / focused, nudge text left slightly
+              // so it doesn't sit under the action buttons.
+              project.owned && onRename && onDelete
+                ? "pr-0 group-hover:pr-16 group-focus-within:pr-16 transition-[padding-right] duration-150 ease-out"
+                : ""
+            )}
+            onClick={onNavigate}
+          >
             <h3 className="truncate text-sm font-medium text-copy-primary">
               {project.name}
             </h3>
@@ -123,15 +163,35 @@ function ProjectList({ projects, onRename, onDelete }: ProjectListProps) {
               {project.id}
             </p>
             <p className="mt-2 text-xs text-copy-faint">{project.updatedAt}</p>
-          </div>
+          </Link>
+
+          {/* FIX: Absolutely positioned so they take zero layout space when
+              hidden — the text link always gets the full card width until
+              the user hovers / focuses, at which point padding-right on the
+              link creates a clean 64 px clearing zone for the buttons. */}
           {project.owned && onRename && onDelete && (
-            <div className="invisible flex w-16 shrink-0 items-center justify-end gap-1 opacity-0 transition-[opacity,visibility] duration-150 ease-out group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+            <div
+              className={cn(
+                "absolute right-3 top-1/2 -translate-y-1/2",
+                "flex items-center gap-1",
+                // Hidden by default; revealed on hover or keyboard focus
+                "pointer-events-none opacity-0",
+                "transition-opacity duration-150 ease-out",
+                "group-hover:pointer-events-auto group-hover:opacity-100",
+                "group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+              )}
+            >
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`Rename ${project.name}`}
-                onClick={() => onRename(project)}
+                onClick={(e) => {
+                  // Prevent the Link click from also firing
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onRename(project)
+                }}
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -140,7 +200,11 @@ function ProjectList({ projects, onRename, onDelete }: ProjectListProps) {
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`Delete ${project.name}`}
-                onClick={() => onDelete(project)}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onDelete(project)
+                }}
               >
                 <Trash2 className="h-4 w-4 text-state-error" />
               </Button>

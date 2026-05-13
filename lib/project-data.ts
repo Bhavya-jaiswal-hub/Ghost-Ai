@@ -2,6 +2,7 @@ import "server-only"
 
 import { auth, currentUser } from "@clerk/nextjs/server"
 
+import { type Prisma } from "@/app/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 
 export interface EditorProject {
@@ -46,15 +47,18 @@ export async function getEditorProjects() {
   const user = await currentUser()
   const emailAddresses =
     user?.emailAddresses.map((email) => email.emailAddress.toLowerCase()) ?? []
-  const collaboratorFilter =
+  const collaboratorFilter: Prisma.ProjectWhereInput[] =
     emailAddresses.length > 0
       ? [
           {
             collaborators: {
               some: {
-                email: {
-                  in: emailAddresses,
-                },
+                OR: emailAddresses.map((email) => ({
+                  email: {
+                    equals: email,
+                    mode: "insensitive",
+                  },
+                })),
               },
             },
           },
