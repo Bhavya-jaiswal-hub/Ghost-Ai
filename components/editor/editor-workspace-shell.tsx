@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type PointerEvent } from "react"
+import { X } from "lucide-react"
 
+import { CanvasWorkspace } from "@/components/editor/canvas-workspace"
 import { EditorLayout } from "@/components/editor/editor-layout"
 import { ShareDialog } from "@/components/editor/share-dialog"
+import { Button } from "@/components/ui/button"
 import { type EditorProject } from "@/lib/project-data"
-import { cn } from "@/lib/utils"
 
 interface EditorWorkspaceShellProps {
   roomId: string
@@ -25,6 +27,22 @@ export function EditorWorkspaceShell({
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
 
+  function handleWorkspacePointerDown(
+    event: PointerEvent<HTMLElement>,
+    closeProjectSidebar: () => void
+  ) {
+    const target = event.target
+
+    if (!(target instanceof Element)) {
+      return
+    }
+
+    if (!target.closest("[data-overlay-panel]")) {
+      closeProjectSidebar()
+      setIsAiSidebarOpen(false)
+    }
+  }
+
   return (
     <EditorLayout
       ownedProjects={ownedProjects}
@@ -36,36 +54,42 @@ export function EditorWorkspaceShell({
       onOpenShareDialog={() => setIsShareDialogOpen(true)}
       onToggleAiSidebar={() => setIsAiSidebarOpen((current) => !current)}
     >
-      {({ isProjectSidebarOpen }) => (
-        <section className="absolute inset-0 flex min-w-0 bg-base">
-          <div
-            className={cn(
-              "flex min-w-0 flex-1 bg-base transition-[padding] duration-200 ease-out",
-              isProjectSidebarOpen && "md:pl-88"
-            )}
-          >
-            <div className="flex min-w-0 flex-1 items-center justify-center px-6">
-              <div className="text-center">
-                <p className="font-mono text-sm text-brand">{roomId}</p>
-                <h1 className="mt-3 text-2xl font-semibold leading-tight text-copy-primary">
-                  Canvas workspace
-                </h1>
-                <p className="mt-3 max-w-md text-sm leading-6 text-copy-muted">
-                  Collaborative canvas will render here in the next feature.
-                </p>
-              </div>
+      {({ closeProjectSidebar }) => (
+        <section
+          className="absolute inset-0 min-w-0 bg-base"
+          onPointerDownCapture={(event) =>
+            handleWorkspacePointerDown(event, closeProjectSidebar)
+          }
+        >
+          <div className="absolute inset-0 min-w-0 bg-base">
+            <div className="h-full min-w-0">
+              <CanvasWorkspace roomId={roomId} />
             </div>
           </div>
           <aside
+            data-overlay-panel
+            aria-hidden={!isAiSidebarOpen}
+            inert={!isAiSidebarOpen}
             className={
               isAiSidebarOpen
-                ? "flex w-[min(24rem,40vw)] shrink-0 flex-col border-l border-surface-border bg-sidebar/95 p-5 backdrop-blur"
-                : "hidden"
+                ? "fixed right-4 top-18 bottom-4 z-40 flex w-[min(24rem,calc(100vw-2rem))] flex-col rounded-2xl border border-surface-border bg-sidebar/95 p-5 shadow-2xl shadow-base/40 backdrop-blur transition-transform duration-200 ease-out"
+                : "fixed right-4 top-18 bottom-4 z-40 flex w-[min(24rem,calc(100vw-2rem))] translate-x-[calc(100%+2rem)] flex-col rounded-2xl border border-surface-border bg-sidebar/95 p-5 shadow-2xl shadow-base/40 backdrop-blur transition-transform duration-200 ease-out"
             }
           >
-            <h2 className="text-sm font-medium text-copy-primary">
-              AI assistant
-            </h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-medium text-copy-primary">
+                AI assistant
+              </h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close AI sidebar"
+                onClick={() => setIsAiSidebarOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
             <div className="mt-4 flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-dashed border-border-subtle bg-elevated/50 px-5 text-center">
               <p className="text-sm leading-6 text-copy-muted">
                 AI chat will appear here later.

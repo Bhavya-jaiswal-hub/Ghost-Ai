@@ -10,7 +10,10 @@ import { type EditorProject } from "@/lib/project-data"
 interface EditorLayoutProps {
   children:
     | ReactNode
-    | ((state: { isProjectSidebarOpen: boolean }) => ReactNode)
+    | ((state: {
+        isProjectSidebarOpen: boolean
+        closeProjectSidebar: () => void
+      }) => ReactNode)
   ownedProjects: EditorProject[]
   sharedProjects: EditorProject[]
   activeProjectId?: string
@@ -33,9 +36,13 @@ export function EditorLayout({
   onToggleAiSidebar,
 }: EditorLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const closeProjectSidebar = () => setIsSidebarOpen(false)
   const content =
     typeof children === "function"
-      ? children({ isProjectSidebarOpen: isSidebarOpen })
+      ? children({
+          isProjectSidebarOpen: isSidebarOpen,
+          closeProjectSidebar,
+        })
       : children
 
   return (
@@ -56,7 +63,7 @@ export function EditorLayout({
         <div className="relative min-h-0 flex-1">
           <ProjectSidebar
             isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
+            onClose={closeProjectSidebar}
             activeProjectId={activeProjectId}
           />
           {content}

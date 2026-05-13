@@ -1,6 +1,6 @@
 "use client"
 
-import { UserButton } from "@clerk/nextjs"
+import dynamic from "next/dynamic"
 import {
   Bot,
   PanelLeftClose,
@@ -20,6 +20,23 @@ interface EditorNavbarProps {
   onOpenShareDialog?: () => void
   onToggleAiSidebar?: () => void
 }
+
+function UserButtonPlaceholder() {
+  return (
+    <div
+      aria-hidden="true"
+      className="size-8 rounded-full border border-surface-border bg-elevated"
+    />
+  )
+}
+
+const ClientUserButton = dynamic(
+  () => import("@clerk/nextjs").then((mod) => mod.UserButton),
+  {
+    ssr: false,
+    loading: UserButtonPlaceholder,
+  }
+)
 
 export function EditorNavbar({
   isSidebarOpen,
@@ -78,7 +95,9 @@ export function EditorNavbar({
             </Button>
           </>
         )}
-        <UserButton userProfileProps={{ appearance: userProfileAppearance }} />
+        <ClientUserButton
+          userProfileProps={{ appearance: userProfileAppearance }}
+        />
       </div>
     </header>
   )

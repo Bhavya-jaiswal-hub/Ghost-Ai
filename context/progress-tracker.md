@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Feature 09: Share Dialog
+- Feature 12: Shape Panel
 
 ## Current Goal
 
-- Feature 09 complete; share dialog shows the project owner and collaborators for every project member.
+- Feature 12 complete; users can drag shape buttons from the bottom canvas toolbar to create custom canvas nodes.
 
 ## Completed
 
@@ -39,6 +39,18 @@ Feature 09: Share Dialog - workspace Share button now opens a centered share dia
 Feature 09 owner visibility follow-up: share responses now include the project owner from Clerk user data alongside collaborator rows. The share dialog renders a `People with access` list with the owner first, role badges for owner/collaborator, owner avatar/name/email when Clerk returns them, and collaborator remove controls only on collaborator rows. Owner rows appear for both project owners and read-only collaborators. ESLint clean and production build passes.
 
 Build syntax fix: repaired malformed `collaboratorFilter` syntax in `lib/project-data.ts`, typed the Prisma project filter so case-insensitive email matching satisfies generated Prisma types, and repaired malformed braces in `lib/project-collaborators.ts`. ESLint clean and production build passes.
+
+Feature 10: Liveblocks Setup - `liveblocks.config.ts` now defines cursor/isThinking presence and typed user metadata for name, avatar, and cursor color. Added cached Liveblocks Node client initialization in `lib/liveblocks.ts` plus deterministic Clerk user ID to cursor color mapping. Added `POST /api/liveblocks-auth`, which validates the Liveblocks room/project ID, requires Clerk auth, verifies project access with `getAccessibleProject`, creates the private Liveblocks room if needed, and returns a room-scoped session token with user metadata. `/api/liveblocks-auth` is allowed through proxy so the route can return JSON `401` responses. Added missing `@liveblocks/node` dependency. ESLint clean and production build passes.
+
+Feature 11: Base Canvas - replaced the workspace placeholder with a client-side Liveblocks canvas wrapper at `components/editor/canvas-workspace.tsx`. The wrapper uses `LiveblocksProvider` with `/api/liveblocks-auth`, `RoomProvider` with the active room ID and initial cursor presence, `ClientSideSuspense` loading UI, and an error fallback for connection failures. React Flow is wired through `useLiveblocksFlow` with suspense, empty initial nodes/edges, loose connections, `fitView`, `MiniMap`, and dot-pattern background. Added shared canvas node/edge schema, node color palette, and node shape constants in `types/canvas.ts`; Liveblocks storage is typed for the synced flow. React Flow base styles are imported globally. ESLint clean and production build passes.
+
+Feature 12: Shape Panel - added a bottom-center floating shape toolbar with draggable icon buttons for rectangle, diamond, circle, pill, cylinder, and hexagon nodes. Drag payloads now include the shape and default size; the canvas handles dragover/drop events, converts screen coordinates with React Flow, and creates Liveblocks-synced custom canvas nodes with empty labels, default colors, shape data, and generated IDs based on shape, timestamp, and counter. Added a basic custom node renderer that displays all shapes as bordered rectangles for this unit. Production build passes.
+
+Hydration fix: `EditorNavbar` now loads Clerk's `UserButton` as a client-only dynamic component with a stable same-size placeholder, preventing a server/client HTML mismatch during workspace hydration. ESLint clean and production build passes.
+
+Issue 001 shape rendering fix: canvas nodes now render shape-specific geometry from `data.shape`, the bottom toolbar tracks an active shape for click-to-place behavior, newly created nodes use their shape as a registered React Flow custom node type, and the legacy `canvasNode` type remains registered for saved nodes. ESLint clean and production build passes.
+
+Issue 002 overlay layout fix: workspace panels no longer resize the canvas. The Projects sidebar remains a fixed overlay without workspace padding, the AI assistant panel now slides in as a fixed overlay with a close button, and outside workspace interaction dismisses open overlays without blocking canvas interaction. ESLint clean and production build passes.
 
 ## In Progress
 
