@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Feature 12: Shape Panel
+- Feature 18: Starter Template Library
 
 ## Current Goal
 
-- Feature 12 complete; users can drag shape buttons from the bottom canvas toolbar to create custom canvas nodes.
+- Feature 18 complete; the editor now includes a starter template library, template preview/import modal, navbar entry point, and Liveblocks-backed canvas replacement flow.
 
 ## Completed
 
@@ -53,6 +53,20 @@ Issue 001 shape rendering fix: canvas nodes now render shape-specific geometry f
 Issue 002 overlay layout fix: workspace panels no longer resize the canvas. The Projects sidebar remains a fixed overlay without workspace padding, the AI assistant panel now slides in as a fixed overlay with a close button, and outside workspace interaction dismisses open overlays without blocking canvas interaction. ESLint clean and production build passes.
 
 Issue 003 node ID collision fix: canvas node creation now uses `crypto.randomUUID()` for shape node IDs instead of a timestamp plus module-local counter, preventing cross-client ID collisions in shared Liveblocks state. ESLint clean and production build passes.
+
+Feature 13: Node Shape - replaced duplicated placeholder shape logic with shared shape rendering for canvas nodes and drag previews. Rectangle, pill, and circle use CSS border radius shapes; diamond, hexagon, and cylinder use scalable inline SVG geometry with subtle resting borders and bright selected borders. Shape drags now show a cursor-attached ghost preview using the same shape type and default size payload used on drop, and the preview clears after drop/cancel without changing node creation behavior. ESLint and `tsc --noEmit` clean. Production build compiled app code but external Google font fetches failed during `next/font` asset resolution in this environment.
+
+Feature 14: Node Editing - selected canvas nodes now show subtle React Flow resize handles with minimum dimensions, and resize changes flow through the existing Liveblocks-backed node state. Node labels now render centered placeholder text when empty, open an overlaid centered textarea on double-click, update collaboratively as users type, and close on blur or Escape while blocking text interactions from dragging or panning the canvas. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 15: Node Color Toolbar - selected canvas nodes now render a compact floating swatch toolbar above the node using the predefined `NODE_COLORS` fill/text pairs. Swatch interactions are marked `nodrag nopan` and stop propagation so they do not drag nodes or pan the canvas. Choosing a swatch updates both node background and text color immediately through the existing Liveblocks-backed node state with no server calls. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 16: Edge Behaviour - new canvas connections are created as custom `canvasEdge` edges with light rounded strokes, arrowheads, and wider invisible interaction paths. Existing rendered edges are normalized through the custom renderer so hover and selection brighten them without increasing visible stroke width. Edge labels are stored in collaborative edge data, rendered via `EdgeLabelRenderer` using the midpoint coordinates from `getSmoothStepPath`, and edited inline on double-click with save-on-blur, Enter, or Escape behavior. Node connection handles remain available on all four sides with subtle hover reveal. ESLint, `tsc --noEmit`, and production build pass.
+
+Issue 003 canvas click creation fix: the shape toolbar now starts with no active tool, empty pane clicks exit without creating nodes unless a shape has been explicitly selected, and click/drop node placement resets the toolbar back to the neutral pointer state afterward. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 17: Canvas Ergonomics - added a bottom-left floating pill control bar with zoom out, fit view, zoom in, undo, and redo controls separated into zoom and history groups. Zoom actions use the active React Flow instance with short animated transitions. Undo and redo use Liveblocks history hooks with disabled states driven by `useCanUndo` and `useCanRedo`. Added `hooks/use-keyboard-shortcuts.ts` for canvas shortcuts: `+`/`=` zoom in, `-` zoom out, Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z redo, and Cmd/Ctrl+Y redo, while skipping inputs, textareas, selects, and editable fields. Removed the bottom-right minimap. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 18: Starter Template Library - added `components/editor/starter-templates.ts` with three shared-schema templates: microservices commerce, CI/CD pipeline, and event-driven orders. Added `components/editor/starter-templates-modal.tsx` with scrollable template cards, fixed-viewport SVG previews calculated from template node bounds, and import actions. The workspace navbar now includes a starter template entry point, and selecting a template replaces the current collaborative canvas by deleting existing nodes/edges, adding the template nodes/edges through the existing Liveblocks React Flow change flow, and fitting the view after import. ESLint, `tsc --noEmit`, and production build pass.
 
 ## In Progress
 

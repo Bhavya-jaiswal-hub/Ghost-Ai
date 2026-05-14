@@ -6,8 +6,12 @@ import { X } from "lucide-react"
 import { CanvasWorkspace } from "@/components/editor/canvas-workspace"
 import { EditorLayout } from "@/components/editor/editor-layout"
 import { ShareDialog } from "@/components/editor/share-dialog"
+import {
+  StarterTemplatesModal,
+} from "@/components/editor/starter-templates-modal"
 import { Button } from "@/components/ui/button"
 import { type EditorProject } from "@/lib/project-data"
+import { type CanvasTemplate } from "@/components/editor/starter-templates"
 
 interface EditorWorkspaceShellProps {
   roomId: string
@@ -15,6 +19,11 @@ interface EditorWorkspaceShellProps {
   canManageShare: boolean
   ownedProjects: EditorProject[]
   sharedProjects: EditorProject[]
+}
+
+interface TemplateImportRequest {
+  template: CanvasTemplate
+  requestId: number
 }
 
 export function EditorWorkspaceShell({
@@ -26,6 +35,9 @@ export function EditorWorkspaceShell({
 }: EditorWorkspaceShellProps) {
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false)
+  const [templateImportRequest, setTemplateImportRequest] =
+    useState<TemplateImportRequest | null>(null)
 
   function handleWorkspacePointerDown(
     event: PointerEvent<HTMLElement>,
@@ -43,6 +55,13 @@ export function EditorWorkspaceShell({
     }
   }
 
+  function handleTemplateImport(template: CanvasTemplate) {
+    setTemplateImportRequest((currentRequest) => ({
+      template,
+      requestId: (currentRequest?.requestId ?? 0) + 1,
+    }))
+  }
+
   return (
     <EditorLayout
       ownedProjects={ownedProjects}
@@ -51,6 +70,7 @@ export function EditorWorkspaceShell({
       projectName={projectName}
       showWorkspaceActions
       isAiSidebarOpen={isAiSidebarOpen}
+      onOpenTemplatesDialog={() => setIsTemplatesModalOpen(true)}
       onOpenShareDialog={() => setIsShareDialogOpen(true)}
       onToggleAiSidebar={() => setIsAiSidebarOpen((current) => !current)}
     >
@@ -63,7 +83,10 @@ export function EditorWorkspaceShell({
         >
           <div className="absolute inset-0 min-w-0 bg-base">
             <div className="h-full min-w-0">
-              <CanvasWorkspace roomId={roomId} />
+              <CanvasWorkspace
+                roomId={roomId}
+                templateImportRequest={templateImportRequest}
+              />
             </div>
           </div>
           <aside
@@ -102,6 +125,11 @@ export function EditorWorkspaceShell({
             projectId={roomId}
             projectName={projectName}
             initialCanManage={canManageShare}
+          />
+          <StarterTemplatesModal
+            open={isTemplatesModalOpen}
+            onOpenChange={setIsTemplatesModalOpen}
+            onImport={handleTemplateImport}
           />
         </section>
       )}

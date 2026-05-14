@@ -168,3 +168,100 @@ outside them without preventing canvas interaction.
 ### References
 - `context/feature-specs/08-editor-workspace-shell.md`
 - `context/feature-specs/07-wire-editor-home.md`
+
+
+
+---
+
+## [ISSUE-003] Clicking Empty Canvas Area Creates Unwanted Rectangle Node
+
+### Status
+Resolved
+
+### Priority
+High
+
+### Area
+`components/editor` · Canvas · Node Creation
+
+### Description
+Clicking anywhere on the empty canvas area automatically creates a rectangle
+node at the clicked position. This should not happen — node creation should
+only occur when the user explicitly selects a shape tool from the toolbar
+and then clicks on the canvas. Accidental clicks for panning, selecting, or
+repositioning the view should never create nodes.
+
+### Steps to Reproduce
+1. Open any project and enter the editor workspace.
+2. Make sure no shape tool is actively selected in the toolbar.
+3. Click anywhere on the empty canvas area.
+4. Observe that a rectangle node is created at the click position.
+
+### Expected Behavior
+- Clicking on empty canvas with no tool selected should do nothing
+- Node creation should only happen when a shape tool is explicitly
+  selected from the toolbar and the user clicks on the canvas
+- Default canvas click behavior should be pan or select only
+
+### Actual Behavior
+- Every click on empty canvas creates a rectangle node
+- Canvas behaves as if the rectangle tool is always active
+- No way to click on canvas without accidentally creating nodes
+
+### Root Cause Hypothesis
+The `onCanvasClick` or `onPaneClick` handler in the canvas component
+is likely creating a new node on every click without checking whether
+a shape tool is currently selected.
+
+Probable causes:
+
+1. **No tool state check**: The click handler creates a node
+   unconditionally without checking if `activeTool` is set to a
+   shape type. It should only create a node when a shape tool is
+   explicitly active.
+
+2. **Default tool is set to rectangle**: The toolbar may be
+   initializing `activeTool` to `rectangle` by default instead
+   of a neutral `select` or `pointer` state, causing every click
+   to trigger node creation.
+
+3. **onPaneClick wired incorrectly**: React Flow's `onPaneClick`
+   event may be connected directly to the node creation function
+   instead of first checking tool state.
+
+### Files to Investigate
+- `components/editor/canvas-workspace.tsx` — check `onPaneClick`
+  or `onCanvasClick` handler
+- `components/ui/button.tsx` — check toolbar default tool state
+- `components/editor/editor-workspace-shell.tsx` — check how
+  active tool state is initialized and passed to canvas
+- `12-shape-panel.md` — intended toolbar and tool selection behavior
+
+### Fix Approach
+- Add a tool state check inside the click handler:
+  only create a node if `activeTool` is a shape type
+- Set default `activeTool` to `pointer` or `select` on load
+- After a node is created, reset `activeTool` back to `pointer`
+  so the user must re-select a tool for the next node
+
+### Acceptance Criteria
+- [x] Clicking empty canvas with no tool selected does nothing
+- [x] Node creation only happens when a shape tool is active
+- [x] After placing a node the tool resets to pointer/select mode
+- [x] Existing drag to pan behavior on empty canvas is unaffected
+- [x] Existing node selection behavior is unaffected
+
+### Resolution
+The canvas now starts with no active shape tool instead of defaulting to the
+rectangle tool. The pane click handler exits early unless a shape has been
+explicitly selected from the toolbar, so ordinary empty-canvas clicks no longer
+create nodes.
+
+Click-to-place and drag-to-place creation both reset the active shape back to
+the neutral pointer state after adding a node. Toolbar buttons can also be
+clicked again to deselect the active shape without placing anything.
+
+### References
+- `context/feature-specs/11-base-canvas.md`
+- `context/feature-specs/12-shape-panel.md`
+- `context/feature-specs/08-editor-workspace-shell.md`

@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic"
 import {
   Bot,
+  LayoutTemplate,
   PanelLeftClose,
   PanelLeftOpen,
   Share2,
@@ -17,6 +18,7 @@ interface EditorNavbarProps {
   projectName?: string
   showWorkspaceActions?: boolean
   isAiSidebarOpen?: boolean
+  onOpenTemplatesDialog?: () => void
   onOpenShareDialog?: () => void
   onToggleAiSidebar?: () => void
 }
@@ -44,6 +46,7 @@ export function EditorNavbar({
   projectName = "Ghost AI",
   showWorkspaceActions = false,
   isAiSidebarOpen = false,
+  onOpenTemplatesDialog,
   onOpenShareDialog,
   onToggleAiSidebar,
 }: EditorNavbarProps) {
@@ -72,6 +75,15 @@ export function EditorNavbar({
       <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
         {showWorkspaceActions && (
           <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Open starter templates"
+              onClick={() => onOpenTemplatesDialog?.()}
+            >
+              <LayoutTemplate className="h-5 w-5" />
+            </Button>
             <Button
               type="button"
               variant="ghost"

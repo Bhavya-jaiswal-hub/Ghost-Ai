@@ -20,6 +20,7 @@ interface EditorLayoutProps {
   projectName?: string
   showWorkspaceActions?: boolean
   isAiSidebarOpen?: boolean
+  onOpenTemplatesDialog?: () => void
   onOpenShareDialog?: () => void
   onToggleAiSidebar?: () => void
 }
@@ -32,6 +33,7 @@ export function EditorLayout({
   projectName,
   showWorkspaceActions,
   isAiSidebarOpen,
+  onOpenTemplatesDialog,
   onOpenShareDialog,
   onToggleAiSidebar,
 }: EditorLayoutProps) {
@@ -57,6 +59,7 @@ export function EditorLayout({
           projectName={projectName}
           showWorkspaceActions={showWorkspaceActions}
           isAiSidebarOpen={isAiSidebarOpen}
+          onOpenTemplatesDialog={onOpenTemplatesDialog}
           onOpenShareDialog={onOpenShareDialog}
           onToggleAiSidebar={onToggleAiSidebar}
         />
