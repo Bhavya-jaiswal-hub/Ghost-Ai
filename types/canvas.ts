@@ -57,7 +57,10 @@ export type CanvasNodeData = {
   shape: CanvasNodeShape
 }
 
-export type CanvasEdgeData = Record<string, never>
+export interface CanvasEdgeData {
+  [key: string]: unknown
+  label: string
+}
 
 export type CanvasNode = Node<CanvasNodeData, CanvasNodeType>
 export type CanvasEdge = Edge<CanvasEdgeData, typeof CANVAS_EDGE_TYPE>
