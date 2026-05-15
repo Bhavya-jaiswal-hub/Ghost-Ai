@@ -68,6 +68,8 @@ Feature 17: Canvas Ergonomics - added a bottom-left floating pill control bar wi
 
 Feature 18: Starter Template Library - added `components/editor/starter-templates.ts` with three shared-schema templates: microservices commerce, CI/CD pipeline, and event-driven orders. Added `components/editor/starter-templates-modal.tsx` with scrollable template cards, fixed-viewport SVG previews calculated from template node bounds, and import actions. The workspace navbar now includes a starter template entry point, and selecting a template replaces the current collaborative canvas by deleting existing nodes/edges, adding the template nodes/edges through the existing Liveblocks React Flow change flow, and fitting the view after import. ESLint, `tsc --noEmit`, and production build pass.
 
+Feature 18 undo batching fix: starter template import now wraps the Liveblocks-backed delete/add-node/add-edge mutations in a single `room.batch`, so the replacement canvas is one undoable history step while local UI cleanup and fit scheduling remain outside the batch.
+
 ## In Progress
 
 - None.

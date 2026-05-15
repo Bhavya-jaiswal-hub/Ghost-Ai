@@ -23,7 +23,7 @@ function isEditableTarget(target: EventTarget | null) {
 
   const editableElement = target.closest("[contenteditable]")
 
-  return editableElement?.getAttribute("contenteditable") !== "false"
+  return editableElement !== null && editableElement.getAttribute("contenteditable") !== "false"
 }
 
 export function useKeyboardShortcuts<

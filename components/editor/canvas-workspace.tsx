@@ -23,6 +23,7 @@ import {
   useCanRedo,
   useCanUndo,
   useRedo,
+  useRoom,
   useUndo,
 } from "@liveblocks/react/suspense"
 import {
@@ -1072,6 +1073,7 @@ function CanvasFlow({
   const { screenToFlowPosition } = reactFlowInstance
   const undo = useUndo()
   const redo = useRedo()
+  const room = useRoom()
   const canUndo = useCanUndo()
   const canRedo = useCanRedo()
   const { nodes, edges, onNodesChange, onEdgesChange, onDelete } =
@@ -1191,21 +1193,23 @@ function CanvasFlow({
   )
 
   function importCanvasTemplate(template: CanvasTemplate) {
-    onDelete({ nodes, edges })
-    onNodesChange(
-      template.nodes.map((node, index) => ({
-        type: "add" as const,
-        item: cloneTemplateNode(node),
-        index,
-      }))
-    )
-    onEdgesChange(
-      template.edges.map((edge, index) => ({
-        type: "add" as const,
-        item: cloneTemplateEdge(edge),
-        index,
-      }))
-    )
+    room.batch(() => {
+      onDelete({ nodes, edges })
+      onNodesChange(
+        template.nodes.map((node, index) => ({
+          type: "add" as const,
+          item: cloneTemplateNode(node),
+          index,
+        }))
+      )
+      onEdgesChange(
+        template.edges.map((edge, index) => ({
+          type: "add" as const,
+          item: cloneTemplateEdge(edge),
+          index,
+        }))
+      )
+    })
     setActiveShape(null)
     setDragPreview(null)
     setPendingFitNodeIds(template.nodes.map((node) => node.id))
