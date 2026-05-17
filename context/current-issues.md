@@ -265,3 +265,48 @@ clicked again to deselect the active shape without placing anything.
 - `context/feature-specs/11-base-canvas.md`
 - `context/feature-specs/12-shape-panel.md`
 - `context/feature-specs/08-editor-workspace-shell.md`
+
+
+## [ISSUE-004] Delete Nodes and Edges
+
+Read liveblocks agent skills before implementing this. Then read the canvas wrapper compoenent and the existing node and edge mutation helpers.
+
+
+Selected nodes and edges cannot be deleted from the canvas.
+
+Add a keydown event listener to the canvas wrapper that:
+
+-listens for Delete and Backspace keys
+-does not fire when the event target is an input, textarea,
+or contenteditable element
+-gets currently selected nodes using useNodes() filtered 
+by selected State
+-gets currently selected edges using useEdges() filtered
+-by selected state
+- remove them using the existing Liveblocks collaborative 
+ mutuation helpers
+
+Do not use React flow's built-in deleteKeyCode or any React flow keyboard deletion behaviour. All deletions 
+must 
+go through the existing liveblocks colloborative state so
+they sync across all connected clients in real time.
+
+Do not change anything else.
+
+## [Issue- 005] Drag and Drop position Offset
+
+Read liveblocks agent skill before implementing this.
+
+when dropping a shape from the shape pannel onto the canvas, 
+the node places below where the cursor actually is.
+
+Check the drop handler in the canvas wrapper.The position 
+calculation must account for:
+
+-the drag offset from where the use grabbed the shape inside the drag element , not just the element's top-left
+corner
+-the canvas container's bounding rect
+-the current React flow pan offset and zoom scale via screenFlowPosition or project
+
+The node should appear with its center at the exact cursor 
+position on drop. 

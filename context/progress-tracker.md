@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Feature 18: Starter Template Library
+- Feature 21: Canvas Autosave
 
 ## Current Goal
 
-- Feature 18 complete; the editor now includes a starter template library, template preview/import modal, navbar entry point, and Liveblocks-backed canvas replacement flow.
+- Feature 21 complete; collaborative canvas snapshots now save correctly through the canvas controls and autosave flow, store the saved blob URL on the Prisma project record, load saved snapshots only into empty Liveblocks rooms, and show accurate save state in the canvas controls.
 
 ## Completed
 
@@ -40,7 +40,7 @@ Feature 09 owner visibility follow-up: share responses now include the project o
 
 Build syntax fix: repaired malformed `collaboratorFilter` syntax in `lib/project-data.ts`, typed the Prisma project filter so case-insensitive email matching satisfies generated Prisma types, and repaired malformed braces in `lib/project-collaborators.ts`. ESLint clean and production build passes.
 
-Feature 10: Liveblocks Setup - `liveblocks.config.ts` now defines cursor/isThinking presence and typed user metadata for name, avatar, and cursor color. Added cached Liveblocks Node client initialization in `lib/liveblocks.ts` plus deterministic Clerk user ID to cursor color mapping. Added `POST /api/liveblocks-auth`, which validates the Liveblocks room/project ID, requires Clerk auth, verifies project access with `getAccessibleProject`, creates the private Liveblocks room if needed, and returns a room-scoped session token with user metadata. `/api/liveblocks-auth` is allowed through proxy so the route can return JSON `401` responses. Added missing `@liveblocks/node` dependency. ESLint clean and production build passes.
+Feature 10: Liveblocks Setup - `liveblocks.config.ts` now defines cursor/thinking presence and typed user metadata for name, avatar, and cursor color. Added cached Liveblocks Node client initialization in `lib/liveblocks.ts` plus deterministic Clerk user ID to cursor color mapping. Added `POST /api/liveblocks-auth`, which validates the Liveblocks room/project ID, requires Clerk auth, verifies project access with `getAccessibleProject`, creates the private Liveblocks room if needed, and returns a room-scoped session token with user metadata. `/api/liveblocks-auth` is allowed through proxy so the route can return JSON `401` responses. Added missing `@liveblocks/node` dependency. ESLint clean and production build passes.
 
 Feature 11: Base Canvas - replaced the workspace placeholder with a client-side Liveblocks canvas wrapper at `components/editor/canvas-workspace.tsx`. The wrapper uses `LiveblocksProvider` with `/api/liveblocks-auth`, `RoomProvider` with the active room ID and initial cursor presence, `ClientSideSuspense` loading UI, and an error fallback for connection failures. React Flow is wired through `useLiveblocksFlow` with suspense, empty initial nodes/edges, loose connections, `fitView`, `MiniMap`, and dot-pattern background. Added shared canvas node/edge schema, node color palette, and node shape constants in `types/canvas.ts`; Liveblocks storage is typed for the synced flow. React Flow base styles are imported globally. ESLint clean and production build passes.
 
@@ -69,6 +69,16 @@ Feature 17: Canvas Ergonomics - added a bottom-left floating pill control bar wi
 Feature 18: Starter Template Library - added `components/editor/starter-templates.ts` with three shared-schema templates: microservices commerce, CI/CD pipeline, and event-driven orders. Added `components/editor/starter-templates-modal.tsx` with scrollable template cards, fixed-viewport SVG previews calculated from template node bounds, and import actions. The workspace navbar now includes a starter template entry point, and selecting a template replaces the current collaborative canvas by deleting existing nodes/edges, adding the template nodes/edges through the existing Liveblocks React Flow change flow, and fitting the view after import. ESLint, `tsc --noEmit`, and production build pass.
 
 Feature 18 undo batching fix: starter template import now wraps the Liveblocks-backed delete/add-node/add-edge mutations in a single `room.batch`, so the replacement canvas is one undoable history step while local UI cleanup and fit scheduling remain outside the batch.
+
+Feature 19: Presence Avatars and Cursor - added a top-right canvas-only presence group that reads the current Clerk user ID, filters Liveblocks participants to exclude that user, displays up to five collaborator avatars with photo/initial fallback plus overflow, and renders the current user through Clerk's UserButton with a divider only when collaborators are present. React Flow mouse movement now broadcasts Liveblocks cursor presence, clears it on mouse leave/unmount, and renders colored name-badge cursors for other participants only. `liveblocks.config.ts` presence now uses `cursor` and `thinking` as specified. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 20: AI Sidebar Shell - separated the right-side AI overlay into `components/editor/ai-sidebar.tsx` while keeping open/close state in the workspace shell and preserving the fixed floating slide-in behavior. Added the AI Workspace header, shadcn Tabs for AI Architect and Specs, a scrollable local-only chat surface with empty state, starter prompt chips, styled user/assistant messages, auto-resizing textarea, Enter submit behavior, and a static Specs tab with Generate Spec button plus disabled demo download card. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 21: Canvas Autosave - installed `@vercel/blob`, reused the existing `Project.canvasJsonPath` Prisma metadata field, added authenticated `GET`/`PUT /api/projects/[projectId]/canvas` routes that validate canvas snapshots, store JSON in Vercel Blob, and persist the returned blob URL on the project record. Added `hooks/use-canvas-autosave.ts` for debounced node/edge autosaves with saving/saved/error state. The editor now loads saved Blob snapshots only when the Liveblocks room is empty, skips loading when active room content already exists, and shows save status in the canvas control bar. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 21 save control fix: the canvas save control now starts in a real `Save` state instead of incorrectly claiming `Saved` before persistence. Clicking the button triggers an immediate `PUT /api/projects/[projectId]/canvas` write to Vercel Blob, successful writes switch the control to `Saved`, and subsequent canvas changes move it back out of the saved state until autosave or manual save completes. The canvas save route now logs Blob read/write failures and returns explicit JSON errors for failed persistence. ESLint, `tsc --noEmit`, and production build pass.
+
+Issue 004/005 canvas interaction fixes: selected canvas nodes and edges can now be deleted with Delete or Backspace through the Liveblocks collaborative delete mutation while editable fields ignore those keys, React Flow's built-in keyboard deletion is disabled, and dragged shape drops now place the node center at the cursor using React Flow screen-to-flow conversion. ESLint and `tsc --noEmit` clean.
 
 ## In Progress
 
