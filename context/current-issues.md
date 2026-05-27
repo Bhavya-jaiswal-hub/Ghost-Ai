@@ -265,3 +265,143 @@ clicked again to deselect the active shape without placing anything.
 - `context/feature-specs/11-base-canvas.md`
 - `context/feature-specs/12-shape-panel.md`
 - `context/feature-specs/08-editor-workspace-shell.md`
+
+
+## [ISSUE-004] Delete Nodes and Edges
+
+Read liveblocks agent skills before implementing this. Then read the canvas wrapper compoenent and the existing node and edge mutation helpers.
+
+
+Selected nodes and edges cannot be deleted from the canvas.
+
+Add a keydown event listener to the canvas wrapper that:
+
+-listens for Delete and Backspace keys
+-does not fire when the event target is an input, textarea,
+or contenteditable element
+-gets currently selected nodes using useNodes() filtered 
+by selected State
+-gets currently selected edges using useEdges() filtered
+-by selected state
+- remove them using the existing Liveblocks collaborative 
+ mutuation helpers
+
+Do not use React flow's built-in deleteKeyCode or any React flow keyboard deletion behaviour. All deletions 
+must 
+go through the existing liveblocks colloborative state so
+they sync across all connected clients in real time.
+
+Do not change anything else.
+
+## [Issue- 005] Drag and Drop position Offset
+
+Read liveblocks agent skill before implementing this.
+
+when dropping a shape from the shape pannel onto the canvas, 
+the node places below where the cursor actually is.
+
+Check the drop handler in the canvas wrapper.The position 
+calculation must account for:
+
+-the drag offset from where the use grabbed the shape inside the drag element , not just the element's top-left
+corner
+-the canvas container's bounding rect
+-the current React flow pan offset and zoom scale via screenFlowPosition or project
+
+The node should appear with its center at the exact cursor 
+position on drop. 
+
+
+# [Issue 006]— AI Generated Canvas Nodes Cluster at One Point Instead of Spreading Across Canvas
+
+Status: Resolved
+
+Description
+When the AI design agent generates an architecture, all nodes render clustered in one corner/point of the canvas (top-right area) instead of being distributed across the canvas with proper spacing and layout.
+Expected Behavior
+Nodes should be spread across the canvas in a readable left-to-right or top-to-bottom flow layout, similar to the reference screenshot — with clear spacing between nodes, logical grouping, and edges connecting them cleanly without overlap.
+Actual Behavior
+All generated nodes stack or cluster at a single point on the canvas, making the diagram unreadable. Edges overlap and node labels are barely visible.
+Root Cause
+The AI agent is generating nodes without valid or distributed position values (x, y). Either:
+
+positions are all defaulting to { x: 0, y: 0 } or a single hardcoded point
+the layout algorithm is not being applied after node generation
+or the canvas viewport is not being fit/reset after nodes are placed
+
+Fix
+In trigger/design-agent.ts:
+
+ensure every generated node has a unique, calculated position based on its role in the architecture (e.g. row/column grid, dagre layout, or manual tier-based spacing)
+apply a layout pass (dagre or simple tier-based x/y calculation) before pushing nodes to Liveblocks
+after generation completes, trigger a fitView on the React Flow canvas so all nodes are visible
+
+References
+
+trigger/design-agent.ts — node generation and position assignment
+context/architecture-context.md — layout and spacing rules
+React Flow docs on fitView and node positioning
+
+Acceptance Criteria
+
+- [x] Generated nodes are distributed across the canvas with clear spacing
+- [x] No two nodes overlap on generation
+- [x] Edges connect nodes cleanly without crossing through unrelated nodes
+- [x] Canvas fits all generated nodes in view after generation completes
+- [x] npm run build passes
+
+Resolution
+The design agent now lays out generated nodes itself before mutating the
+Liveblocks React Flow state. New nodes are grouped into left-to-right columns
+from generated edge relationships, same-column nodes are spaced vertically, and
+new diagrams start to the right of existing canvas content to avoid overlap.
+
+The canvas also listens for the existing AI completion room event and calls
+React Flow `fitView` after the collaborative update lands, so generated
+architectures are immediately visible.
+
+Follow-up
+The generated-node layout was tightened to use a bounded architecture-layer
+grid: client/user entry, gateway/API, services/workers, and data/storage.
+Generated nodes in the same layer are spaced at least 170px apart vertically,
+and directly connected generated nodes are compacted into neighboring columns
+so edge endpoints do not drift into very large x positions.
+Sonnet 4.6
+
+
+# [Issue 007] — AI Sidebar Missing "Chat" Tab, Only Shows "AI Architect" and "Specs"
+Description
+The AI sidebar is missing the dedicated Chat tab. Currently only "AI Architect" and "Specs" tabs are visible. The chat feed logic (ai-chat Liveblocks feed) is wired up in the backend but the Chat tab is either not rendered or merged incorrectly into the AI Architect tab.
+Expected Behavior
+The sidebar should show three tabs: AI Architect, Chat, and Specs — matching the reference screenshot. The Chat tab should display room chat messages with sender name, timestamp, and message content, with the existing input and send button wired to the ai-chat feed.
+Actual Behavior
+Only two tabs render: AI Architect and Specs. Chat messages from the ai-chat feed have no dedicated tab to display in. Users cannot see or send room chat messages from the sidebar.
+Root Cause
+In components/editor/ai-sidebar.tsx the Tabs component is likely only defining two TabsTrigger and TabsContent entries (architect and specs). The Chat tab trigger and its content panel were either never added or were removed during a previous refactor.
+Fix
+In components/editor/ai-sidebar.tsx:
+
+add a third TabsTrigger with value chat and label Chat between AI Architect and Specs
+add the corresponding TabsContent with value chat
+move the ai-chat feed subscription, message list, and input/send button into this ChatTab content panel
+keep AI Architect tab for prompt submission and run status only
+ensure tab styling stays consistent — active tab uses accent styling, inactive uses muted text
+
+References
+
+components/editor/ai-sidebar.tsx — tab definitions and content panels
+types/tasks.ts — chat message Zod schema
+Spec 25 — ai-chat feed wiring and message validation
+
+Acceptance Criteria
+
+- [x] Sidebar shows three tabs: AI Architect, Chat, Specs
+- [x] Chat tab renders messages from ai-chat feed with sender, timestamp, content
+- [x] Input and send button in Chat tab post to ai-chat feed
+- [x] AI Architect tab is unchanged
+- [x] npm run build passes
+
+Status: Resolved
+
+Resolution
+The AI sidebar now defines a three-column tab list with AI Architect, Chat, and Specs. The validated `ai-chat` feed message list and room-only chat composer live in the Chat tab, while the AI Architect tab stays focused on starter prompts, design prompt submission, and active run status.
