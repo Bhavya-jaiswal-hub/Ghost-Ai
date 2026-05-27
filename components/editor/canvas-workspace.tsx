@@ -20,12 +20,12 @@ import {
   type SyntheticEvent,
 } from "react"
 import { useAuth } from "@clerk/nextjs"
-import { LiveblocksProvider, RoomProvider } from "@liveblocks/react/suspense"
 import {
   ClientSideSuspense,
   shallow,
   useCanRedo,
   useCanUndo,
+  useEventListener,
   useOther,
   useOthersConnectionIds,
   useOthersMapped,
@@ -107,6 +107,7 @@ import {
 interface CanvasWorkspaceProps {
   roomId: string
   templateImportRequest?: TemplateImportRequest | null
+  onSnapshotChange?: (snapshot: CanvasSnapshot) => void
 }
 
 interface TemplateImportRequest {
@@ -135,6 +136,7 @@ interface CollaboratorPresence {
   name: string
   avatar: string
   color: string
+  thinking: boolean
 }
 
 interface CanvasNodeActions {
@@ -1238,7 +1240,7 @@ function CollaboratorAvatar({
   return (
     <div
       aria-label={participantLabel(participant)}
-      className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-base bg-subtle text-xs font-semibold text-copy-primary shadow-md ring-1 ring-surface-border"
+      className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-base bg-subtle text-xs font-semibold text-copy-primary shadow-md ring-1 ring-surface-border"
       title={participantLabel(participant)}
     >
       {isSafeAvatarUrl(participant.avatar) ? (
@@ -1263,6 +1265,12 @@ function CollaboratorAvatar({
           {participantInitials(participant)}
         </span>
       )}
+      {participant.thinking ? (
+        <span
+          aria-hidden="true"
+          className="absolute bottom-0 right-0 size-2.5 rounded-full border border-base bg-ai-text"
+        />
+      ) : null}
     </div>
   )
 }
@@ -1276,9 +1284,10 @@ function CanvasPresenceGroup({
     (other) =>
       ({
         id: other.id,
-        name: other.info.name,
-        avatar: other.info.avatar,
-        color: other.info.color,
+        name: other.info.name ?? "Ghost AI",
+        avatar: other.info.avatar ?? "",
+        color: other.info.color ?? "var(--accent-ai-text)",
+        thinking: other.presence.thinking,
       }) satisfies CollaboratorPresence,
     shallow
   )
@@ -1334,9 +1343,10 @@ function CanvasLiveCursor({
     connectionId,
     (other) => ({
       id: other.id,
-      name: other.info.name,
-      color: other.info.color,
+      name: other.info.name ?? "Ghost AI",
+      color: other.info.color ?? "var(--accent-ai-text)",
       cursor: other.presence.cursor,
+      thinking: other.presence.thinking,
     }),
     shallow
   )
@@ -1366,10 +1376,13 @@ function CanvasLiveCursor({
         />
       </svg>
       <span
-        className="mt-3 max-w-40 truncate rounded-xl px-2 py-1 text-xs font-medium text-base shadow-lg"
+        className="mt-3 flex max-w-40 items-center gap-1.5 truncate rounded-xl px-2 py-1 text-xs font-medium text-base shadow-lg"
         style={{ backgroundColor: participant.color }}
       >
-        {participantLabel(participant)}
+        {participant.thinking ? (
+          <LoaderCircle className="h-3 w-3 shrink-0 animate-spin" />
+        ) : null}
+        <span className="truncate">{participantLabel(participant)}</span>
       </span>
     </div>
   )
@@ -1398,9 +1411,11 @@ function CanvasLiveCursors({
 function CanvasFlow({
   roomId,
   templateImportRequest,
+  onSnapshotChange,
 }: {
   roomId: string
   templateImportRequest?: TemplateImportRequest | null
+  onSnapshotChange?: (snapshot: CanvasSnapshot) => void
 }) {
   const [activeShape, setActiveShape] =
     useState<CanvasNodeShape | null>(null)
@@ -1408,6 +1423,7 @@ function CanvasFlow({
     useState<ShapeDragPreviewState | null>(null)
   const [pendingFitNodeIds, setPendingFitNodeIds] =
     useState<string[] | null>(null)
+  const [aiFitRequestId, setAiFitRequestId] = useState(0)
   const [hasCompletedInitialLoad, setHasCompletedInitialLoad] =
     useState(false)
   const importedRequestIdRef = useRef<number | null>(null)
@@ -1612,9 +1628,35 @@ function CanvasFlow({
   useEffect(() => {
     latestCanvasStateRef.current = {
       nodes,
-      edges,
+      edges: normalizedEdges,
     }
-  }, [edges, nodes])
+
+    onSnapshotChange?.({
+      nodes,
+      edges: normalizedEdges,
+    })
+  }, [nodes, normalizedEdges, onSnapshotChange])
+
+  useEventListener(({ event }) => {
+    if (event.type !== "ai-status" || event.status !== "complete") {
+      return
+    }
+
+    setAiFitRequestId((requestId) => requestId + 1)
+  })
+
+  useEffect(() => {
+    if (aiFitRequestId === 0 || nodes.length === 0) {
+      return
+    }
+
+    const animationFrame = requestAnimationFrame(() => {
+      void reactFlowInstance.fitView({ duration: 220, padding: 0.18 })
+      setAiFitRequestId(0)
+    })
+
+    return () => cancelAnimationFrame(animationFrame)
+  }, [aiFitRequestId, nodes.length, reactFlowInstance])
 
   useEffect(() => {
     function handleKeyDown(event: globalThis.KeyboardEvent) {
@@ -1917,34 +1959,26 @@ function CanvasFlow({
 export function CanvasWorkspace({
   roomId,
   templateImportRequest,
+  onSnapshotChange,
 }: CanvasWorkspaceProps) {
   return (
-    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
-      <CanvasErrorBoundary key={roomId}>
-        <RoomProvider
-          id={roomId}
-          initialPresence={{
-            cursor: null,
-            thinking: false,
-          }}
-        >
-          <ClientSideSuspense
-            fallback={
-              <CanvasStateMessage
-                title="Loading canvas"
-                description="Connecting to the collaborative workspace."
-              />
-            }
-          >
-            <ReactFlowProvider>
-              <CanvasFlow
-                roomId={roomId}
-                templateImportRequest={templateImportRequest}
-              />
-            </ReactFlowProvider>
-          </ClientSideSuspense>
-        </RoomProvider>
-      </CanvasErrorBoundary>
-    </LiveblocksProvider>
+    <CanvasErrorBoundary key={roomId}>
+      <ClientSideSuspense
+        fallback={
+          <CanvasStateMessage
+            title="Loading canvas"
+            description="Connecting to the collaborative workspace."
+          />
+        }
+      >
+        <ReactFlowProvider>
+          <CanvasFlow
+            roomId={roomId}
+            templateImportRequest={templateImportRequest}
+            onSnapshotChange={onSnapshotChange}
+          />
+        </ReactFlowProvider>
+      </ClientSideSuspense>
+    </CanvasErrorBoundary>
   )
 }

@@ -5,6 +5,7 @@ const signUpPath = process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL ?? "/sign-up"
 
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/api/ai(.*)",
   "/api/liveblocks-auth",
   "/api/projects(.*)",
   `${signInPath}(.*)`,

@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Feature 21: Canvas Autosave
+- Feature 29: Spec UI Integration (complete)
 
 ## Current Goal
 
-- Feature 21 complete; collaborative canvas snapshots now save correctly through the canvas controls and autosave flow, store the saved blob URL on the Prisma project record, load saved snapshots only into empty Liveblocks rooms, and show accurate save state in the canvas controls.
+- Feature 29 is complete; generated specs are listed, previewed as Markdown, and downloaded from the AI sidebar Specs tab.
 
 ## Completed
 
@@ -80,6 +80,48 @@ Feature 21 save control fix: the canvas save control now starts in a real `Save`
 
 Issue 004/005 canvas interaction fixes: selected canvas nodes and edges can now be deleted with Delete or Backspace through the Liveblocks collaborative delete mutation while editable fields ignore those keys, React Flow's built-in keyboard deletion is disabled, and dragged shape drops now place the node center at the cursor using React Flow screen-to-flow conversion. ESLint and `tsc --noEmit` clean.
 
+Trigger.dev setup: installed `@trigger.dev/sdk`, `trigger.dev`, and `@trigger.dev/build` at matching versions; added `trigger.config.ts` pointing at the `trigger/` task directory with retry and duration defaults; added `trigger:dev` and `trigger:deploy` npm scripts; ignored local `.trigger/` output; and created an exported `setup-health-check` task so Trigger.dev can discover the task directory. The config uses `TRIGGER_PROJECT_REF` when provided and falls back to a replace-me project ref until the Trigger Cloud project is connected. `tsc --noEmit`, ESLint, Trigger CLI help, and production build pass.
+
+Feature 22: Design Agent API - added a `TaskRun` Prisma model and migration to track Trigger.dev run ownership by `runId`, `projectId`, `userId`, and `createdAt`. Added `trigger/design-agent.ts` as a minimal exported `design-agent` task that accepts `prompt` and `roomId` and logs/echoes the input only. Added authenticated `POST /api/ai/design` to validate `prompt`, `roomId`, and `projectId`, verify project access, trigger the design task, persist a `TaskRun`, and return the run ID. Added authenticated `POST /api/ai/design/token` to validate a run ID, verify ownership via `TaskRun`, and return a Trigger.dev public token scoped to that run. `/api/ai(.*)` is routed through handlers for JSON auth responses, and ESLint now ignores generated `.trigger/**` build output. Prisma validate/generate, ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 23: Design Agent Logic - `trigger/design-agent.ts` now uses Gemini through `@ai-sdk/google` and the AI SDK structured object generation to convert a user prompt plus the current Liveblocks React Flow snapshot into bounded canvas actions. The task applies add/move/resize/update/delete node actions and add/delete edge actions through `@liveblocks/react-flow/node` `mutateFlow`, validates generated shapes/colors/dimensions/coordinates against the shared canvas schema, avoids duplicate/self edges, and maps temporary generated IDs to actual node IDs. The canvas listens for typed `ai-status` room events and renders a shared status feed for started/processing/complete/error states. The task publishes status events at key steps, sets a Ghost AI Liveblocks presence cursor with thinking state while running, handles failures with an error status, and clears AI presence in `finally`. The AI sidebar triggers the design task through the existing authenticated API route. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 23 environment fix: `trigger/design-agent.ts` now passes the Gemini API key explicitly to the Google AI SDK provider, resolving `GEMINI_API_KEY` first and falling back to `GOOGLE_GENERATIVE_AI_API_KEY`. This matches the feature spec's documented `.env.local` variable and prevents the provider from failing when only `GEMINI_API_KEY` is configured.
+
+Feature 23 Gemini access handling: local environment inspection found `GOOGLE_AI_API_KEY` configured instead of `GEMINI_API_KEY`. The design agent now resolves `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, or `GOOGLE_AI_API_KEY`, and normalizes Google permission-denied/project-denied responses into an actionable message that instructs the operator to rotate to a Gemini-enabled Google AI Studio or Google Cloud project key with access, billing, and quota enabled.
+
+Feature 23 Gemini diagnostics: direct Google API verification still returned `403 Your project has been denied access` for the locally configured `GOOGLE_AI_API_KEY`. The design agent now trims quoted env values and includes the selected env var name plus a non-secret key fingerprint in access-denied errors and logs, making stale Trigger Cloud/local environment values visible without exposing secrets.
+
+Feature 24: AI Presence State - added typed `ai-status-feed` support with `types/tasks.ts` validation for shared AI status messages, lifted the Liveblocks room provider to the editor workspace so the canvas and AI sidebar share the same realtime room, and wired the sidebar to subscribe to the latest validated feed message. The sidebar now shows a shared AI activity indicator, disables only the chat input while generation is active, and shows a loading send button state while keeping the rest of the sidebar usable. The design agent now publishes status updates to the Liveblocks feed in addition to existing room events, and live cursor name badges render a spinner whenever presence has `thinking: true`. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 25: Sidebar Chat Feed - added a separate room-scoped Liveblocks `ai-chat` feed alongside the existing `ai-status-feed`, with Zod-backed validation for chat message sender, role, content, and timestamp data in `types/tasks.ts`. The AI sidebar now creates/subscribes to `ai-chat`, renders validated messages in chronological order with sender and timestamp metadata, sends user messages through the existing input/send button, clears the input after successful sends, and shows small loading/error states for chat feed failures. The sidebar chat send path no longer triggers backend AI design tasks or writes status-feed messages. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 26: Design Agent Frontend - the AI sidebar now sends prompts into the shared `ai-chat` feed, calls `POST /api/ai/design` with `{ prompt, roomId }`, stores the returned run ID and public token, subscribes to Trigger.dev realtime run status with `useRealtimeRun`, disables only the chat input while a design run is active, and writes final assistant or error messages back into the collaborative chat feed. The active-run status strip reads the latest `ai-status-feed` message and appears only while generation/status loading is active. `/api/ai/design` now returns a scoped Trigger.dev public token in the initial response while preserving existing token-route compatibility. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 26 follow-up: startup and realtime connection failures are no longer persisted into the shared `ai-chat` feed or shown as permanent composer errors, preventing failed run setup messages from appearing as assistant output after generation. Completed design runs now use the Trigger run output summary as the final AI chat bubble, so the sidebar shows the actual design result while canvas changes continue to arrive through Liveblocks. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 26 output follow-up: completed design runs now always produce a final AI chat bubble by falling back from Trigger output `summary` to the latest completed `ai-status-feed` text and then to a neutral canvas-updated message. Runs with structured task errors surface that task output text instead of silently ending. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 26 durable output fix: analysis of recent Trigger runs confirmed the design task completed with a valid summary, but the final assistant message was still dependent on a client-side `useRealtimeRun` completion effect. The design-agent task now writes its summary directly to the shared `ai-chat` feed immediately after applying the Liveblocks canvas update, so output text is produced by the same durable worker that changes the architecture. The sidebar now uses realtime run state only for loading/reset behavior, avoiding missed client-side completion events and duplicate assistant bubbles. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 26 input disable fix: the AI sidebar now treats stale `useRealtimeRun` data from a previous completed run as active whenever it does not match the current `activeRun.runId`, keeping the prompt input disabled from submit through the current run lifecycle. This preserves the durable worker-owned output message path while restoring correct disabled input behavior during background work. ESLint, `tsc --noEmit`, and production build pass.
+
+Issue 006 AI layout fix: the design agent now applies a deterministic tiered layout pass to generated add-node actions before writing them to Liveblocks, spacing new nodes left-to-right by generated edge tiers and stacking same-tier nodes vertically without overlap. The canvas listens for the existing AI complete room event and fits the React Flow viewport after generated updates land. ESLint, `tsc --noEmit`, and production build pass.
+
+Issue 006 layout follow-up: generated node layout now uses a bounded architecture-layer grid for client, gateway, service, and data/storage columns, spaces same-column nodes at least 170px apart vertically, and compacts directly connected generated nodes so edge endpoints stay in neighboring columns instead of drifting to very large x positions. ESLint, `tsc --noEmit`, and production build pass.
+
+Issue 007 AI sidebar tab fix: the AI sidebar now renders three tabs: AI Architect, Chat, and Specs. Room chat feed display and room-only message sending were moved into the dedicated Chat tab, while the AI Architect tab remains focused on design prompt submission and run status. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 27: Spec Generation Flow - added authenticated `POST /api/ai/spec` that accepts `roomId`, chat history, nodes, and edges; derives project access from the authenticated user plus `roomId`; triggers the `generate-spec` Trigger.dev task; records TaskRun ownership; and returns the run ID. Added `POST /api/ai/spec/token` with run-owner verification and a one-hour Trigger.dev public token. Added `trigger/generate-spec.ts`, which validates payloads with Zod, uses Gemini through `@ai-sdk/google`, updates run metadata progress/status, and returns the generated Markdown spec as plain task output without storing it. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 28: Spec Persistence and Download - added `ProjectSpec` metadata model and migration, regenerated Prisma Client, updated `generate-spec` to upload generated Markdown to private Vercel Blob and create a linked Prisma record, and added protected `GET /api/projects/[projectId]/specs/[specId]/download` route that verifies project access and spec ownership before streaming a Markdown attachment. Updated architecture context to reflect Vercel Blob-backed spec storage. Prisma validate/generate, ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 29: Spec UI Integration - the AI sidebar Specs tab now fetches compact ProjectSpec metadata for the current project, shows a scrollable generated spec list with filename and created timestamp, opens selected specs in a Dialog preview rendered as Markdown through the protected download route, and provides download actions from both the list and modal. Added the missing authenticated ProjectSpec metadata GET route at `/api/projects/[projectId]/specs` so the client does not read Blob URLs directly. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 29 database readiness fix: applied the pending Prisma migrations `20260522090000_add_task_runs` and `20260525090000_add_project_specs` to the configured PostgreSQL database, resolving the missing `ProjectSpec` table error in the Specs tab. The specs metadata route now catches Prisma `P2021` table-missing errors and returns a clear JSON `503` response instead of an unhandled server exception. Prisma migrate status reports the database schema is up to date. ESLint, `tsc --noEmit`, and production build pass.
+
+Feature 29 generate button follow-up: the Specs tab Generate Spec button now starts the existing `generate-spec` Trigger.dev task through `/api/ai/spec`, passing the current canvas nodes/edges and validated room chat history. The editor workspace keeps the latest canvas snapshot in a local ref shared from `CanvasWorkspace` to `AiSidebar`, and the Specs tab subscribes to the returned run with a scoped public token, shows generation progress/error feedback, and refreshes the generated spec list when the run completes. ESLint, `tsc --noEmit`, and production build pass.
+
 ## In Progress
 
 - None.
@@ -90,4 +132,4 @@ Issue 004/005 canvas interaction fixes: selected canvas nodes and edges can now 
 
 ## Next Steps
 
-- Move to the next feature spec.
+- Define the next feature unit before implementation begins.

@@ -1,6 +1,15 @@
 import type { LiveblocksFlow } from "@liveblocks/react-flow"
 
 import type { CanvasEdge, CanvasNode } from "@/types/canvas"
+import type { AiChatFeedMessage, AiStatusFeedMessage } from "@/types/tasks"
+
+export type AiStatusEvent = {
+  type: "ai-status"
+  id: string
+  status: "started" | "processing" | "complete" | "error"
+  message: string
+  timestamp: string
+}
 
 declare global {
   interface Liveblocks {
@@ -25,7 +34,9 @@ declare global {
       }
     }
 
-    RoomEvent: Record<string, never>
+    RoomEvent: AiStatusEvent
+
+    FeedMessageData: AiStatusFeedMessage | AiChatFeedMessage
 
     ThreadMetadata: Record<string, never>
 

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, type PointerEvent } from "react"
+import { useCallback, useRef, useState, type PointerEvent } from "react"
+import { LiveblocksProvider, RoomProvider } from "@liveblocks/react/suspense"
 
 import { AiSidebar } from "@/components/editor/ai-sidebar"
 import { CanvasWorkspace } from "@/components/editor/canvas-workspace"
@@ -11,6 +12,7 @@ import {
 } from "@/components/editor/starter-templates-modal"
 import { type EditorProject } from "@/lib/project-data"
 import { type CanvasTemplate } from "@/components/editor/starter-templates"
+import { type CanvasSnapshot } from "@/types/canvas"
 
 interface EditorWorkspaceShellProps {
   roomId: string
@@ -37,6 +39,14 @@ export function EditorWorkspaceShell({
   const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false)
   const [templateImportRequest, setTemplateImportRequest] =
     useState<TemplateImportRequest | null>(null)
+  const canvasSnapshotRef = useRef<CanvasSnapshot>({
+    nodes: [],
+    edges: [],
+  })
+  const handleCanvasSnapshotChange = useCallback((snapshot: CanvasSnapshot) => {
+    canvasSnapshotRef.current = snapshot
+  }, [])
+  const getCanvasSnapshot = useCallback(() => canvasSnapshotRef.current, [])
 
   function handleWorkspacePointerDown(
     event: PointerEvent<HTMLElement>,
@@ -80,18 +90,31 @@ export function EditorWorkspaceShell({
             handleWorkspacePointerDown(event, closeProjectSidebar)
           }
         >
-          <div className="absolute inset-0 min-w-0 bg-base">
-            <div className="h-full min-w-0">
-              <CanvasWorkspace
+          <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
+            <RoomProvider
+              id={roomId}
+              initialPresence={{
+                cursor: null,
+                thinking: false,
+              }}
+            >
+              <div className="absolute inset-0 min-w-0 bg-base">
+                <div className="h-full min-w-0">
+                  <CanvasWorkspace
+                    roomId={roomId}
+                    templateImportRequest={templateImportRequest}
+                    onSnapshotChange={handleCanvasSnapshotChange}
+                  />
+                </div>
+              </div>
+              <AiSidebar
+                isOpen={isAiSidebarOpen}
                 roomId={roomId}
-                templateImportRequest={templateImportRequest}
+                getCanvasSnapshot={getCanvasSnapshot}
+                onClose={() => setIsAiSidebarOpen(false)}
               />
-            </div>
-          </div>
-          <AiSidebar
-            isOpen={isAiSidebarOpen}
-            onClose={() => setIsAiSidebarOpen(false)}
-          />
+            </RoomProvider>
+          </LiveblocksProvider>
           <ShareDialog
             open={isShareDialogOpen}
             onOpenChange={setIsShareDialogOpen}
