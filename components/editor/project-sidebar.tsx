@@ -22,7 +22,7 @@ function EmptyProjectState({ label }: { label: string }) {
     </div>
   )
 }
-
+                                                                      
 export function ProjectSidebar({
   isOpen,
   onClose,
