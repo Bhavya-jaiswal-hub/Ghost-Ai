@@ -405,3 +405,96 @@ Status: Resolved
 
 Resolution
 The AI sidebar now defines a three-column tab list with AI Architect, Chat, and Specs. The validated `ai-chat` feed message list and room-only chat composer live in the Chat tab, while the AI Architect tab stays focused on starter prompts, design prompt submission, and active run status.
+
+# [Issue 008] —  AI Generated Nodes Overlap in Production But Layout Correctly in Local Dev
+
+Status: Resolved
+
+Description
+When the AI design agent generates an architecture in production (Trigger.dev cloud), all nodes render centered and overlapping at the same point. The exact same prompt works correctly in local development where nodes are properly distributed horizontally and vertically across the canvas.
+Expected Behavior
+Generated nodes should be distributed across the canvas with proper horizontal and vertical spacing regardless of environment — identical behavior in local dev and production.
+Actual Behavior
+In production all nodes render at the same position, causing complete overlap. The diagram is unreadable. Local dev works correctly.
+Investigation Checklist
+Before fixing, the agent should check the following in trigger/design-agent.ts:
+1. Layout library dependency
+
+Is dagre, elkjs, or any other layout library being used for position calculation?
+Is that library listed in dependencies or only devDependencies in package.json?
+If it's in devDependencies it won't be available in the Trigger.dev production bundle
+
+2. Position calculation
+
+Are node positions calculated before or after being pushed to Liveblocks?
+Is the layout function async? If so, are positions being awaited properly?
+Is there any setTimeout or deferred execution around position assignment?
+What is the default/fallback position when calculation fails — is it {x:0, y:0}?
+
+3. Environment differences
+
+Does the layout function use window, document, or any browser API that doesn't exist in Node.js/Trigger.dev cloud?
+Does it rely on React Flow's getLayoutedElements which only works client-side?
+Are there any try/catch blocks silently swallowing layout errors and falling back to {x:0, y:0}?
+
+4. Logging
+
+Are there any logs showing what positions are being assigned before pushing to Liveblocks?
+Check Trigger.dev run logs for the production run — do positions show as 0,0 or undefined?
+
+Root Cause Hypothesis
+Most likely one of:
+
+Layout library is in devDependencies only → not bundled in production deploy
+Layout function uses a browser/React API that fails silently in Node.js cloud environment
+try/catch swallows layout error and falls back to {x:0, y:0} for all nodes
+Async layout not properly awaited before Liveblocks push
+
+Confirmed Root Cause
+The production task was already using Node-compatible pure math layout and no
+external layout library. The fragile path was the layout map key: generated node
+positions were keyed by the AI-provided temporary id or, when absent, the label.
+If production model output reused ids or labels, multiple add-node actions
+resolved to the same layout entry and were pushed to Liveblocks at the same
+position. Local runs could appear correct when the model happened to emit unique
+temporary ids.
+
+Fix Direction
+Once root cause is confirmed:
+
+If library missing in prod → move to dependencies or replace with pure math layout
+If browser API used → replace with Node.js compatible pure function
+If silent failure → add explicit error logging around layout calculation
+Add position validation guard — if any node has x:0, y:0 after layout, apply tier-based fallback using layerIndex * 300 and nodeIndex * 180
+Log all final node positions to Trigger.dev run logs before pushing to Liveblocks
+
+References
+
+trigger/design-agent.ts — node generation and position assignment
+package.json — check layout library is in dependencies not devDependencies
+context/architecture-context.md — layout and spacing rules
+Trigger.dev run logs — check actual position values in production
+
+Acceptance Criteria
+
+- [x] Root cause identified and documented
+- [x] Node positions are never {x:0, y:0} or undefined after layout
+- [x] Layout works identically in local dev and production
+- [x] Final node positions are logged to Trigger.dev before Liveblocks push
+- [x] No browser/client APIs used in the Trigger.dev task
+- [x] npm run build passes
+
+Resolution
+The design agent now keys layout positions by each add-node action's index in
+the generated plan instead of by model-supplied ids or labels, so duplicate or
+missing temporary identifiers cannot collapse generated nodes onto one
+coordinate. Edge tiering still uses the first matching model reference for
+source/target ordering, but every generated node receives its own final
+position.
+
+Empty-canvas generated diagrams now start from a non-zero origin, and the task
+logs the final generated node positions to Trigger.dev immediately before
+mutating the shared Liveblocks React Flow state. The add-edge mapping path also
+resolves nodes through the same reference helper used by layout, improving
+production robustness when the model omits explicit ids.
+

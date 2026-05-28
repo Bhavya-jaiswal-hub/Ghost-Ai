@@ -95,6 +95,13 @@ interface DesignAgentPlan {
   actions: DesignAction[];
 }
 
+interface GeneratedAddNodeEntry {
+  action: AddNodeAction;
+  actionIndex: number;
+  key: string;
+  referenceId: string;
+}
+
 const AI_USER_ID = "ghost-ai-agent";
 const AI_USER_INFO = {
   name: "Ghost AI",
@@ -110,6 +117,7 @@ const MAX_ACTIONS = 36;
 const GENERATED_NODE_LAYER_X_POSITIONS = [0, 250, 550, 900] as const;
 const GENERATED_NODE_ROW_GAP = 170;
 const GENERATED_NODE_EXISTING_GAP = 260;
+const GENERATED_NODE_EMPTY_ORIGIN = { x: 120, y: 120 } as const;
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_ACCESS_DENIED_MESSAGE =
   "Gemini access is denied for the configured API key project.";
@@ -378,7 +386,7 @@ function getCanvasLayoutOrigin(snapshot: {
   nodes: readonly CanvasNode[];
 }) {
   if (snapshot.nodes.length === 0) {
-    return { x: 0, y: 0 };
+    return GENERATED_NODE_EMPTY_ORIGIN;
   }
 
   const maxRightEdge = Math.max(...snapshot.nodes.map(getNodeRightEdge));
@@ -434,26 +442,44 @@ function createGeneratedNodeLayout(
   actions: readonly DesignAction[],
   snapshot: { nodes: readonly CanvasNode[] }
 ) {
-  const addActions = actions.filter(
-    (action): action is AddNodeAction => action.type === "addNode"
-  );
+  const addEntries = actions.flatMap((action, actionIndex) => {
+    if (action.type !== "addNode") {
+      return [];
+    }
 
-  if (addActions.length === 0) {
-    return new Map<string, { x: number; y: number }>();
+    return [
+      {
+        action,
+        actionIndex,
+        key: `add-node:${actionIndex}`,
+        referenceId: getActionReferenceId(action),
+      } satisfies GeneratedAddNodeEntry,
+    ];
+  });
+
+  if (addEntries.length === 0) {
+    return {
+      addNodePositions: new Map<number, { x: number; y: number }>(),
+      moveNodePositions: new Map<string, { x: number; y: number }>(),
+    };
   }
 
   const origin = getCanvasLayoutOrigin(snapshot);
-  const generatedNodeIds = new Set(addActions.map(getActionReferenceId));
+  const generatedNodeReferences = new Map<string, string>();
   const tiers = new Map<string, number>();
 
-  for (const action of addActions) {
+  for (const entry of addEntries) {
+    if (!generatedNodeReferences.has(entry.referenceId)) {
+      generatedNodeReferences.set(entry.referenceId, entry.key);
+    }
+
     tiers.set(
-      getActionReferenceId(action),
-      getClampedGeneratedNodeLayer(getGeneratedNodeLayer(action))
+      entry.key,
+      getClampedGeneratedNodeLayer(getGeneratedNodeLayer(entry.action))
     );
   }
 
-  for (let pass = 0; pass < addActions.length * 2; pass += 1) {
+  for (let pass = 0; pass < addEntries.length * 2; pass += 1) {
     let changed = false;
 
     for (const action of actions) {
@@ -461,12 +487,15 @@ function createGeneratedNodeLayout(
         continue;
       }
 
-      if (!generatedNodeIds.has(action.source) || !generatedNodeIds.has(action.target)) {
+      const sourceKey = generatedNodeReferences.get(action.source);
+      const targetKey = generatedNodeReferences.get(action.target);
+
+      if (!sourceKey || !targetKey) {
         continue;
       }
 
-      const sourceTier = tiers.get(action.source);
-      const targetTier = tiers.get(action.target);
+      const sourceTier = tiers.get(sourceKey);
+      const targetTier = tiers.get(targetKey);
 
       if (sourceTier === undefined || targetTier === undefined) {
         continue;
@@ -491,12 +520,12 @@ function createGeneratedNodeLayout(
       nextTargetTier = getClampedGeneratedNodeLayer(nextTargetTier);
 
       if (nextSourceTier !== sourceTier) {
-        tiers.set(action.source, nextSourceTier);
+        tiers.set(sourceKey, nextSourceTier);
         changed = true;
       }
 
       if (nextTargetTier !== targetTier) {
-        tiers.set(action.target, nextTargetTier);
+        tiers.set(targetKey, nextTargetTier);
         changed = true;
       }
     }
@@ -506,18 +535,18 @@ function createGeneratedNodeLayout(
     }
   }
 
-  const columns = new Map<number, AddNodeAction[]>();
+  const columns = new Map<number, GeneratedAddNodeEntry[]>();
 
-  for (const action of addActions) {
-    const referenceId = getActionReferenceId(action);
-    const tier = tiers.get(referenceId) ?? 0;
+  for (const entry of addEntries) {
+    const tier = tiers.get(entry.key) ?? 0;
     const column = columns.get(tier) ?? [];
 
-    column.push(action);
+    column.push(entry);
     columns.set(tier, column);
   }
 
-  const layout = new Map<string, { x: number; y: number }>();
+  const addNodePositions = new Map<number, { x: number; y: number }>();
+  const moveNodePositions = new Map<string, { x: number; y: number }>();
   const orderedTiers = [...columns.keys()].sort((a, b) => a - b);
 
   for (const tier of orderedTiers) {
@@ -525,38 +554,41 @@ function createGeneratedNodeLayout(
     const columnHeight = (column.length - 1) * GENERATED_NODE_ROW_GAP;
     const columnStartY = origin.y - columnHeight / 2;
 
-    column.forEach((action, rowIndex) => {
-      const referenceId = getActionReferenceId(action);
-
-      if (!generatedNodeIds.has(referenceId)) {
-        return;
-      }
-
-      layout.set(referenceId, {
+    column.forEach((entry, rowIndex) => {
+      const position = {
         x: origin.x + GENERATED_NODE_LAYER_X_POSITIONS[tier],
         y: Math.round(columnStartY + rowIndex * GENERATED_NODE_ROW_GAP),
-      });
+      };
+
+      addNodePositions.set(entry.actionIndex, position);
+
+      if (!moveNodePositions.has(entry.referenceId)) {
+        moveNodePositions.set(entry.referenceId, position);
+      }
     });
   }
 
-  return layout;
+  return { addNodePositions, moveNodePositions };
 }
 
 function applyGeneratedNodeLayout(
   plan: DesignAgentPlan,
   snapshot: { nodes: readonly CanvasNode[] }
 ): DesignAgentPlan {
-  const layout = createGeneratedNodeLayout(plan.actions, snapshot);
+  const { addNodePositions, moveNodePositions } = createGeneratedNodeLayout(
+    plan.actions,
+    snapshot
+  );
 
-  if (layout.size === 0) {
+  if (addNodePositions.size === 0) {
     return plan;
   }
 
   return {
     ...plan,
-    actions: plan.actions.map((action) => {
+    actions: plan.actions.map((action, actionIndex) => {
       if (action.type === "addNode") {
-        const position = layout.get(getActionReferenceId(action));
+        const position = addNodePositions.get(actionIndex);
 
         if (!position) {
           return action;
@@ -570,7 +602,7 @@ function applyGeneratedNodeLayout(
       }
 
       if (action.type === "moveNode") {
-        const position = layout.get(action.nodeId);
+        const position = moveNodePositions.get(action.nodeId);
 
         if (!position) {
           return action;
@@ -586,6 +618,27 @@ function applyGeneratedNodeLayout(
       return action;
     }),
   };
+}
+
+function getGeneratedNodePositionLog(plan: DesignAgentPlan) {
+  return plan.actions.flatMap((action, actionIndex) => {
+    if (action.type !== "addNode") {
+      return [];
+    }
+
+    return [
+      {
+        actionIndex,
+        id: action.id?.trim() || null,
+        label: sanitizeLabel(action.label, "Untitled node"),
+        shape: action.shape,
+        x: action.x,
+        y: action.y,
+        unsafeOriginPosition: action.x === 0 && action.y === 0,
+        hasFinitePosition: Number.isFinite(action.x) && Number.isFinite(action.y),
+      },
+    ];
+  });
 }
 
 function compactCanvasForPrompt(snapshot: {
@@ -704,9 +757,10 @@ function applyDesignPlan(plan: DesignAgentPlan, roomId: string) {
     for (const action of plan.actions.slice(0, MAX_ACTIONS)) {
       if (action.type === "addNode") {
         const node = createCanvasNode(action);
+        const referenceId = getActionReferenceId(action);
 
-        if (action.id) {
-          addedNodeIds.set(action.id, node.id);
+        if (referenceId && !addedNodeIds.has(referenceId)) {
+          addedNodeIds.set(referenceId, node.id);
         }
 
         flow.addNode(node);
@@ -1017,6 +1071,12 @@ export const designAgent = task({
 
       const generatedPlan = await generateDesignPlan(payload.prompt, snapshot);
       const plan = applyGeneratedNodeLayout(generatedPlan, snapshot);
+      const generatedNodePositions = getGeneratedNodePositionLog(plan);
+
+      logger.info("Design agent final generated node positions.", {
+        roomId: payload.roomId,
+        generatedNodePositions,
+      });
 
       await setAiPresence(payload.roomId, true, { x: 320, y: 220 });
       await publishStatus(

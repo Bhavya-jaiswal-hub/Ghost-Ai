@@ -124,6 +124,8 @@ Feature 29 generate button follow-up: the Specs tab Generate Spec button now sta
 
 Vercel Prisma build fix: updated the production build script to run `prisma generate` before `next build`, ensuring the gitignored Prisma v7 generated client at `app/generated/prisma` exists during Vercel bundling. This resolves module resolution failures from `lib/prisma.ts` imports in app routes and server components. ESLint, `tsc --noEmit`, and production build pass.
 
+Issue 008 production AI layout fix: the design agent now keys generated node layout positions by each add-node action index instead of model-supplied temporary ids or labels, preventing duplicate or missing AI references from collapsing multiple nodes onto one coordinate in Trigger.dev production runs. Empty generated diagrams now start from a non-zero origin, final generated positions are logged before Liveblocks mutation, and add-edge resolution shares the same reference helper used by layout. ESLint, `tsc --noEmit`, and production build pass.
+
 ## In Progress
 
 - None.
