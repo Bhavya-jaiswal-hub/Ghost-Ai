@@ -122,6 +122,8 @@ Feature 29 database readiness fix: applied the pending Prisma migrations `202605
 
 Feature 29 generate button follow-up: the Specs tab Generate Spec button now starts the existing `generate-spec` Trigger.dev task through `/api/ai/spec`, passing the current canvas nodes/edges and validated room chat history. The editor workspace keeps the latest canvas snapshot in a local ref shared from `CanvasWorkspace` to `AiSidebar`, and the Specs tab subscribes to the returned run with a scoped public token, shows generation progress/error feedback, and refreshes the generated spec list when the run completes. ESLint, `tsc --noEmit`, and production build pass.
 
+Vercel Prisma build fix: updated the production build script to run `prisma generate` before `next build`, ensuring the gitignored Prisma v7 generated client at `app/generated/prisma` exists during Vercel bundling. This resolves module resolution failures from `lib/prisma.ts` imports in app routes and server components. ESLint, `tsc --noEmit`, and production build pass.
+
 ## In Progress
 
 - None.
