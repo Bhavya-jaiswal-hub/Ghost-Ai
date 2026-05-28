@@ -1,8 +1,10 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import {
   Component,
   createContext,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -17,14 +19,20 @@ import {
   type ReactNode,
   type SyntheticEvent,
 } from "react"
-import { LiveblocksProvider, RoomProvider } from "@liveblocks/react/suspense"
+import { useAuth } from "@clerk/nextjs"
 import {
   ClientSideSuspense,
+  shallow,
   useCanRedo,
   useCanUndo,
+  useEventListener,
+  useOther,
+  useOthersConnectionIds,
+  useOthersMapped,
   useRedo,
   useRoom,
   useUndo,
+  useUpdateMyPresence,
 } from "@liveblocks/react/suspense"
 import {
   Background,
@@ -47,6 +55,8 @@ import {
   type NodeProps,
   type NodeTypes,
   type ReactFlowInstance,
+  useEdges,
+  useNodes,
   useReactFlow,
 } from "@xyflow/react"
 import { useLiveblocksFlow } from "@liveblocks/react-flow"
@@ -54,20 +64,29 @@ import {
   Circle,
   Cylinder,
   Diamond,
+  CheckCircle2,
   Hexagon,
+  LoaderCircle,
   Minus,
   Pill,
   Plus,
   RectangleHorizontal,
   Redo2,
+  Save,
   Scan,
+  TriangleAlert,
   Undo2,
   type LucideIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { type CanvasTemplate } from "@/components/editor/starter-templates"
+import {
+  useCanvasAutosave,
+  type CanvasSaveStatus,
+} from "@/hooks/use-canvas-autosave"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { userProfileAppearance } from "@/lib/clerk-appearance"
 import {
   CANVAS_NODE_TYPE,
   CANVAS_EDGE_TYPE,
@@ -80,12 +99,15 @@ import {
   type CanvasNode,
   type CanvasNodeColor,
   type CanvasNodeShape,
+  type CanvasNodeSize,
+  type CanvasSnapshot,
   type ShapeDragPayload,
 } from "@/types/canvas"
 
 interface CanvasWorkspaceProps {
   roomId: string
   templateImportRequest?: TemplateImportRequest | null
+  onSnapshotChange?: (snapshot: CanvasSnapshot) => void
 }
 
 interface TemplateImportRequest {
@@ -109,6 +131,14 @@ interface ShapeDragPreviewState extends ShapeDragPayload {
   y: number
 }
 
+interface CollaboratorPresence {
+  id: string
+  name: string
+  avatar: string
+  color: string
+  thinking: boolean
+}
+
 interface CanvasNodeActions {
   updateNodeLabel: (nodeId: string, label: string) => void
   updateNodeColor: (nodeId: string, color: CanvasNodeColor) => void
@@ -126,6 +156,7 @@ const MIN_NODE_HEIGHT = 48
 const EMPTY_NODE_LABEL_PLACEHOLDER = "Untitled node"
 const EDGE_INTERACTION_WIDTH = 28
 const EDGE_LABEL_HINT = "Label"
+const MAX_VISIBLE_COLLABORATORS = 5
 const DEFAULT_CANVAS_EDGE_MARKER = {
   type: MarkerType.ArrowClosed,
   color: "var(--text-primary)",
@@ -233,6 +264,23 @@ function CanvasStateMessage({
   )
 }
 
+function CanvasUserButtonPlaceholder() {
+  return (
+    <div
+      aria-hidden="true"
+      className="size-8 rounded-full border border-surface-border bg-elevated"
+    />
+  )
+}
+
+const CanvasUserButton = dynamic(
+  () => import("@clerk/nextjs").then((mod) => mod.UserButton),
+  {
+    ssr: false,
+    loading: CanvasUserButtonPlaceholder,
+  }
+)
+
 function isCanvasNodeShape(value: unknown): value is CanvasNodeShape {
   return (
     typeof value === "string" &&
@@ -275,6 +323,55 @@ function readShapeDragPayload(dataTransfer: DataTransfer) {
   } catch {
     return null
   }
+}
+
+function participantLabel(participant: Pick<CollaboratorPresence, "name">) {
+  const trimmedName = participant.name.trim()
+
+  return trimmedName.length > 0 ? trimmedName : "Collaborator"
+}
+
+function participantInitials(participant: Pick<CollaboratorPresence, "name">) {
+  const label = participantLabel(participant)
+  const initials = label
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("")
+
+  return initials || "C"
+}
+
+function isSafeAvatarUrl(url: string) {
+  if (!url) {
+    return false
+  }
+
+  try {
+    const parsedUrl = new URL(url)
+
+    return parsedUrl.protocol === "https:" || parsedUrl.protocol === "http:"
+  } catch {
+    return false
+  }
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  if (target.closest("input, textarea, [contenteditable]")) {
+    const editableElement = target.closest("[contenteditable]")
+
+    return (
+      !editableElement ||
+      editableElement.getAttribute("contenteditable") !== "false"
+    )
+  }
+
+  return false
 }
 
 function createNodeId(shape: CanvasNodeShape) {
@@ -882,6 +979,22 @@ function createCanvasNode(
   } satisfies CanvasNode
 }
 
+function getCenteredCanvasNodePosition(
+  screenToFlowPosition: ReactFlowInstance<
+    CanvasNode,
+    CanvasEdge
+  >["screenToFlowPosition"],
+  point: { x: number; y: number },
+  size: CanvasNodeSize
+) {
+  const center = screenToFlowPosition(point)
+
+  return {
+    x: center.x - size.width / 2,
+    y: center.y - size.height / 2,
+  } satisfies CanvasNode["position"]
+}
+
 function ShapePanel({
   activeShape,
   onSelectShape,
@@ -969,26 +1082,89 @@ function ShapeDragPreview({ preview }: { preview: ShapeDragPreviewState }) {
   )
 }
 
+function getSaveStatusLabel(status: CanvasSaveStatus) {
+  if (status === "idle") {
+    return "Save"
+  }
+
+  if (status === "saving") {
+    return "Saving"
+  }
+
+  if (status === "error") {
+    return "Save"
+  }
+
+  return "Saved"
+}
+
+function SaveStatusIcon({ status }: { status: CanvasSaveStatus }) {
+  if (status === "saving") {
+    return (
+      <LoaderCircle
+        className="h-4 w-4 animate-spin"
+        aria-hidden="true"
+      />
+    )
+  }
+
+  if (status === "error") {
+    return <TriangleAlert className="h-4 w-4" aria-hidden="true" />
+  }
+
+  if (status === "saved") {
+    return <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+  }
+
+  return <Save className="h-4 w-4" aria-hidden="true" />
+}
+
 function CanvasControlBar({
   reactFlowInstance,
   canUndo,
   canRedo,
+  saveStatus,
+  onSave,
   onUndo,
   onRedo,
 }: {
   reactFlowInstance: ReactFlowInstance<CanvasNode, CanvasEdge>
   canUndo: boolean
   canRedo: boolean
+  saveStatus: CanvasSaveStatus
+  onSave: () => void
   onUndo: () => void
   onRedo: () => void
 }) {
   const controlButtonClassName =
     "h-8 w-8 rounded-full text-copy-secondary hover:bg-accent-dim hover:text-brand disabled:pointer-events-none disabled:opacity-35"
+  const saveStatusClassName =
+    saveStatus === "error"
+      ? "text-state-error"
+      : saveStatus === "saved"
+        ? "text-state-success"
+        : saveStatus === "idle"
+          ? "text-copy-primary hover:text-brand"
+          : "text-copy-secondary"
   const zoomOptions = { duration: 160 }
+  const saveStatusLabel = getSaveStatusLabel(saveStatus)
 
   return (
     <Panel position="bottom-left" className="mb-6 ml-6">
       <div className="nodrag nopan flex items-center gap-1 rounded-full border border-surface-border bg-surface/90 p-1 shadow-lg backdrop-blur-md">
+        <Button
+          type="button"
+          variant="ghost"
+          title={saveStatusLabel}
+          aria-label={saveStatusLabel}
+          disabled={saveStatus === "saving"}
+          className={`h-8 rounded-full px-3 text-xs font-medium ${saveStatusClassName}`}
+          onClick={onSave}
+        >
+          <SaveStatusIcon status={saveStatus} />
+          <span>{saveStatusLabel}</span>
+        </Button>
+        <div className="mx-1 h-6 w-px bg-surface-border" />
         <div className="flex items-center gap-1">
           <Button
             type="button"
@@ -1056,10 +1232,190 @@ function CanvasControlBar({
   )
 }
 
-function CanvasFlow({
-  templateImportRequest,
+function CollaboratorAvatar({
+  participant,
 }: {
+  participant: CollaboratorPresence
+}) {
+  return (
+    <div
+      aria-label={participantLabel(participant)}
+      className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-base bg-subtle text-xs font-semibold text-copy-primary shadow-md ring-1 ring-surface-border"
+      title={participantLabel(participant)}
+    >
+      {isSafeAvatarUrl(participant.avatar) ? (
+        <span
+          aria-hidden="true"
+          className="block h-full w-full"
+          style={{
+            backgroundImage: `url(${participant.avatar})`,
+            backgroundPosition: "center",
+            backgroundSize: "cover",
+          }}
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          className="flex h-full w-full items-center justify-center"
+          style={{
+            backgroundColor: participant.color,
+            color: "var(--bg-base)",
+          }}
+        >
+          {participantInitials(participant)}
+        </span>
+      )}
+      {participant.thinking ? (
+        <span
+          aria-hidden="true"
+          className="absolute bottom-0 right-0 size-2.5 rounded-full border border-base bg-ai-text"
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function CanvasPresenceGroup({
+  currentUserId,
+}: {
+  currentUserId: string | null | undefined
+}) {
+  const others = useOthersMapped(
+    (other) =>
+      ({
+        id: other.id,
+        name: other.info.name ?? "Ghost AI",
+        avatar: other.info.avatar ?? "",
+        color: other.info.color ?? "var(--accent-ai-text)",
+        thinking: other.presence.thinking,
+      }) satisfies CollaboratorPresence,
+    shallow
+  )
+  const collaborators = others.filter(
+    ([, participant]) => participant.id !== currentUserId
+  )
+  const visibleCollaborators = collaborators.slice(0, MAX_VISIBLE_COLLABORATORS)
+  const overflowCount = Math.max(
+    0,
+    collaborators.length - MAX_VISIBLE_COLLABORATORS
+  )
+  const hasCollaborators = collaborators.length > 0
+
+  return (
+    <div className="pointer-events-auto absolute right-4 top-4 z-30 flex items-center gap-2 rounded-full border border-surface-border bg-surface/90 px-2 py-1 shadow-lg backdrop-blur-md">
+      {hasCollaborators ? (
+        <>
+          <div className="flex -space-x-2">
+            {visibleCollaborators.map(([connectionId, participant]) => (
+              <CollaboratorAvatar
+                key={connectionId}
+                participant={participant}
+              />
+            ))}
+            {overflowCount > 0 ? (
+              <div
+                aria-label={`${overflowCount} more collaborators`}
+                className="flex size-8 shrink-0 items-center justify-center rounded-full border border-base bg-elevated text-xs font-semibold text-copy-secondary shadow-md ring-1 ring-surface-border"
+                title={`${overflowCount} more collaborators`}
+              >
+                +{overflowCount}
+              </div>
+            ) : null}
+          </div>
+          <div className="h-6 w-px bg-surface-border" aria-hidden="true" />
+        </>
+      ) : null}
+      <CanvasUserButton
+        userProfileProps={{ appearance: userProfileAppearance }}
+      />
+    </div>
+  )
+}
+
+function CanvasLiveCursor({
+  connectionId,
+  currentUserId,
+}: {
+  connectionId: number
+  currentUserId: string | null | undefined
+}) {
+  const participant = useOther(
+    connectionId,
+    (other) => ({
+      id: other.id,
+      name: other.info.name ?? "Ghost AI",
+      color: other.info.color ?? "var(--accent-ai-text)",
+      cursor: other.presence.cursor,
+      thinking: other.presence.thinking,
+    }),
+    shallow
+  )
+
+  if (!participant.cursor || participant.id === currentUserId) {
+    return null
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className="absolute left-0 top-0 flex items-start gap-1"
+      style={{
+        transform: `translate(${participant.cursor.x}px, ${participant.cursor.y}px)`,
+      }}
+    >
+      <svg
+        className="h-4 w-4 shrink-0 drop-shadow"
+        viewBox="0 0 16 16"
+        fill="none"
+      >
+        <path
+          d="M2 1.5L14 7L8.6 9.1L6.5 14.5L2 1.5Z"
+          fill={participant.color}
+          stroke="var(--bg-base)"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span
+        className="mt-3 flex max-w-40 items-center gap-1.5 truncate rounded-xl px-2 py-1 text-xs font-medium text-base shadow-lg"
+        style={{ backgroundColor: participant.color }}
+      >
+        {participant.thinking ? (
+          <LoaderCircle className="h-3 w-3 shrink-0 animate-spin" />
+        ) : null}
+        <span className="truncate">{participantLabel(participant)}</span>
+      </span>
+    </div>
+  )
+}
+
+function CanvasLiveCursors({
+  currentUserId,
+}: {
+  currentUserId: string | null | undefined
+}) {
+  const connectionIds = useOthersConnectionIds()
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+      {connectionIds.map((connectionId) => (
+        <CanvasLiveCursor
+          key={connectionId}
+          connectionId={connectionId}
+          currentUserId={currentUserId}
+        />
+      ))}
+    </div>
+  )
+}
+
+function CanvasFlow({
+  roomId,
+  templateImportRequest,
+  onSnapshotChange,
+}: {
+  roomId: string
   templateImportRequest?: TemplateImportRequest | null
+  onSnapshotChange?: (snapshot: CanvasSnapshot) => void
 }) {
   const [activeShape, setActiveShape] =
     useState<CanvasNodeShape | null>(null)
@@ -1067,15 +1423,38 @@ function CanvasFlow({
     useState<ShapeDragPreviewState | null>(null)
   const [pendingFitNodeIds, setPendingFitNodeIds] =
     useState<string[] | null>(null)
+  const [aiFitRequestId, setAiFitRequestId] = useState(0)
+  const [hasCompletedInitialLoad, setHasCompletedInitialLoad] =
+    useState(false)
   const importedRequestIdRef = useRef<number | null>(null)
+  const hasAttemptedSavedCanvasLoadRef = useRef(false)
+  const latestCanvasStateRef = useRef<{
+    nodes: CanvasNode[]
+    edges: CanvasEdge[]
+  }>({
+    nodes: [],
+    edges: [],
+  })
   const isDraggingShape = dragPreview !== null
   const reactFlowInstance = useReactFlow<CanvasNode, CanvasEdge>()
   const { screenToFlowPosition } = reactFlowInstance
+  const flowNodes = useNodes<CanvasNode>()
+  const flowEdges = useEdges<CanvasEdge>()
+  const selectedNodes = useMemo(
+    () => flowNodes.filter((node) => node.selected),
+    [flowNodes]
+  )
+  const selectedEdges = useMemo(
+    () => flowEdges.filter((edge) => edge.selected),
+    [flowEdges]
+  )
   const undo = useUndo()
   const redo = useRedo()
   const room = useRoom()
   const canUndo = useCanUndo()
   const canRedo = useCanRedo()
+  const updateMyPresence = useUpdateMyPresence()
+  const { userId: currentUserId } = useAuth()
   const { nodes, edges, onNodesChange, onEdgesChange, onDelete } =
     useLiveblocksFlow<CanvasNode, CanvasEdge>({
       suspense: true,
@@ -1090,6 +1469,12 @@ function CanvasFlow({
     () => edges.map((edge) => normalizeCanvasEdge(edge)),
     [edges]
   )
+  const { saveNow, status: saveStatus } = useCanvasAutosave({
+    projectId: roomId,
+    nodes,
+    edges: normalizedEdges,
+    enabled: hasCompletedInitialLoad,
+  })
   const nodeActions = useMemo<CanvasNodeActions>(
     () => ({
       updateNodeLabel: (nodeId, label) => {
@@ -1215,11 +1600,159 @@ function CanvasFlow({
     setPendingFitNodeIds(template.nodes.map((node) => node.id))
   }
 
+  const loadCanvasSnapshot = useCallback((snapshot: CanvasSnapshot) => {
+    room.batch(() => {
+      onNodesChange(
+        snapshot.nodes.map((node, index) => ({
+          type: "add" as const,
+          item: cloneTemplateNode(node),
+          index,
+        }))
+      )
+      onEdgesChange(
+        snapshot.edges.map((edge, index) => ({
+          type: "add" as const,
+          item: normalizeCanvasEdge(cloneTemplateEdge(edge)),
+          index,
+        }))
+      )
+    })
+  }, [onEdgesChange, onNodesChange, room])
+
   useKeyboardShortcuts({
     reactFlowInstance,
     onUndo: handleUndo,
     onRedo: handleRedo,
   })
+
+  useEffect(() => {
+    latestCanvasStateRef.current = {
+      nodes,
+      edges: normalizedEdges,
+    }
+
+    onSnapshotChange?.({
+      nodes,
+      edges: normalizedEdges,
+    })
+  }, [nodes, normalizedEdges, onSnapshotChange])
+
+  useEventListener(({ event }) => {
+    if (event.type !== "ai-status" || event.status !== "complete") {
+      return
+    }
+
+    setAiFitRequestId((requestId) => requestId + 1)
+  })
+
+  useEffect(() => {
+    if (aiFitRequestId === 0 || nodes.length === 0) {
+      return
+    }
+
+    const animationFrame = requestAnimationFrame(() => {
+      void reactFlowInstance.fitView({ duration: 220, padding: 0.18 })
+      setAiFitRequestId(0)
+    })
+
+    return () => cancelAnimationFrame(animationFrame)
+  }, [aiFitRequestId, nodes.length, reactFlowInstance])
+
+  useEffect(() => {
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (
+        event.key !== "Delete" &&
+        event.key !== "Backspace"
+      ) {
+        return
+      }
+
+      if (isEditableTarget(event.target)) {
+        return
+      }
+
+      if (selectedNodes.length === 0 && selectedEdges.length === 0) {
+        return
+      }
+
+      event.preventDefault()
+      onDelete({ nodes: selectedNodes, edges: selectedEdges })
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [onDelete, selectedEdges, selectedNodes])
+
+  useEffect(() => {
+    if (hasAttemptedSavedCanvasLoadRef.current) {
+      return
+    }
+
+    hasAttemptedSavedCanvasLoadRef.current = true
+
+    let isCancelled = false
+
+    if (nodes.length > 0 || edges.length > 0) {
+      queueMicrotask(() => {
+        if (!isCancelled) {
+          setHasCompletedInitialLoad(true)
+        }
+      })
+
+      return () => {
+        isCancelled = true
+      }
+    }
+
+    async function loadSavedCanvas() {
+      try {
+        const response = await fetch(`/api/projects/${roomId}/canvas`, {
+          cache: "no-store",
+        })
+
+        if (!response.ok) {
+          throw new Error("Saved canvas load failed.")
+        }
+
+        const body = (await response.json()) as {
+          canvas?: CanvasSnapshot | null
+        }
+
+        if (isCancelled || !body.canvas) {
+          return
+        }
+
+        const currentCanvas = latestCanvasStateRef.current
+
+        if (currentCanvas.nodes.length > 0 || currentCanvas.edges.length > 0) {
+          return
+        }
+
+        loadCanvasSnapshot(body.canvas)
+      } catch (error) {
+        console.error("Saved canvas load failed.", error)
+      } finally {
+        if (!isCancelled) {
+          setHasCompletedInitialLoad(true)
+        }
+      }
+    }
+
+    void loadSavedCanvas()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [edges.length, loadCanvasSnapshot, nodes.length, roomId])
+
+  useEffect(() => {
+    return () => {
+      updateMyPresence({ cursor: null })
+    }
+  }, [updateMyPresence])
 
   useEffect(() => {
     if (
@@ -1303,10 +1836,14 @@ function CanvasFlow({
 
     event.preventDefault()
 
-    const position = screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    })
+    const position = getCenteredCanvasNodePosition(
+      screenToFlowPosition,
+      {
+        x: event.clientX,
+        y: event.clientY,
+      },
+      payload.size
+    )
 
     const newNode = createCanvasNode(payload.shape, position, payload.size)
 
@@ -1339,56 +1876,80 @@ function CanvasFlow({
     setActiveShape(null)
   }
 
+  function handleCanvasMouseMove(event: MouseEvent<HTMLDivElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect()
+
+    updateMyPresence({
+      cursor: {
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      },
+    })
+  }
+
+  function handleCanvasMouseLeave() {
+    updateMyPresence({ cursor: null })
+  }
+
   return (
     <CanvasNodeActionsContext.Provider value={nodeActions}>
       <CanvasEdgeActionsContext.Provider value={edgeActions}>
-        <ReactFlow
-          nodes={nodes}
-          edges={normalizedEdges}
-          nodeTypes={canvasNodeTypes}
-          edgeTypes={canvasEdgeTypes}
-          defaultEdgeOptions={defaultCanvasEdgeOptions}
-          defaultMarkerColor="var(--text-primary)"
-          connectionLineType={ConnectionLineType.SmoothStep}
-          connectionLineStyle={{
-            stroke: "var(--text-secondary)",
-            strokeWidth: 2,
-            strokeLinecap: "round",
-          }}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={handleConnect}
-          onDelete={onDelete}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          onPaneClick={handlePaneClick}
-          connectionMode={ConnectionMode.Loose}
-          fitView
-          className="bg-base text-copy-primary"
-        >
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={24}
-            size={1}
-            color="var(--border-subtle)"
-            bgColor="var(--bg-base)"
-          />
-          <CanvasControlBar
-            reactFlowInstance={reactFlowInstance}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-          />
-          <ShapePanel
-            activeShape={activeShape}
-            onSelectShape={setActiveShape}
-            onShapeDragStart={(payload, point) =>
-              setDragPreview({ ...payload, ...point })
-            }
-            onShapeDragEnd={() => setDragPreview(null)}
-          />
-        </ReactFlow>
+        <div className="relative h-full w-full">
+          <ReactFlow
+            nodes={nodes}
+            edges={normalizedEdges}
+            nodeTypes={canvasNodeTypes}
+            edgeTypes={canvasEdgeTypes}
+            defaultEdgeOptions={defaultCanvasEdgeOptions}
+            defaultMarkerColor="var(--text-primary)"
+            connectionLineType={ConnectionLineType.SmoothStep}
+            connectionLineStyle={{
+              stroke: "var(--text-secondary)",
+              strokeWidth: 2,
+              strokeLinecap: "round",
+            }}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={handleConnect}
+            onDelete={onDelete}
+            deleteKeyCode={null}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseLeave={handleCanvasMouseLeave}
+            onPaneClick={handlePaneClick}
+            connectionMode={ConnectionMode.Loose}
+            fitView
+            className="bg-base text-copy-primary"
+          >
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={24}
+              size={1}
+              color="var(--border-subtle)"
+              bgColor="var(--bg-base)"
+            />
+            <CanvasControlBar
+              reactFlowInstance={reactFlowInstance}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              saveStatus={saveStatus}
+              onSave={saveNow}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+            />
+            <ShapePanel
+              activeShape={activeShape}
+              onSelectShape={setActiveShape}
+              onShapeDragStart={(payload, point) =>
+                setDragPreview({ ...payload, ...point })
+              }
+              onShapeDragEnd={() => setDragPreview(null)}
+            />
+          </ReactFlow>
+          <CanvasLiveCursors currentUserId={currentUserId} />
+          <CanvasPresenceGroup currentUserId={currentUserId} />
+        </div>
       </CanvasEdgeActionsContext.Provider>
       {dragPreview ? <ShapeDragPreview preview={dragPreview} /> : null}
     </CanvasNodeActionsContext.Provider>
@@ -1398,31 +1959,26 @@ function CanvasFlow({
 export function CanvasWorkspace({
   roomId,
   templateImportRequest,
+  onSnapshotChange,
 }: CanvasWorkspaceProps) {
   return (
-    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
-      <CanvasErrorBoundary key={roomId}>
-        <RoomProvider
-          id={roomId}
-          initialPresence={{
-            cursor: null,
-            isThinking: false,
-          }}
-        >
-          <ClientSideSuspense
-            fallback={
-              <CanvasStateMessage
-                title="Loading canvas"
-                description="Connecting to the collaborative workspace."
-              />
-            }
-          >
-            <ReactFlowProvider>
-              <CanvasFlow templateImportRequest={templateImportRequest} />
-            </ReactFlowProvider>
-          </ClientSideSuspense>
-        </RoomProvider>
-      </CanvasErrorBoundary>
-    </LiveblocksProvider>
+    <CanvasErrorBoundary key={roomId}>
+      <ClientSideSuspense
+        fallback={
+          <CanvasStateMessage
+            title="Loading canvas"
+            description="Connecting to the collaborative workspace."
+          />
+        }
+      >
+        <ReactFlowProvider>
+          <CanvasFlow
+            roomId={roomId}
+            templateImportRequest={templateImportRequest}
+            onSnapshotChange={onSnapshotChange}
+          />
+        </ReactFlowProvider>
+      </ClientSideSuspense>
+    </CanvasErrorBoundary>
   )
 }
