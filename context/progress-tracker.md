@@ -126,6 +126,8 @@ Vercel Prisma build fix: updated the production build script to run `prisma gene
 
 Issue 008 production AI layout fix: the design agent now keys generated node layout positions by each add-node action index instead of model-supplied temporary ids or labels, preventing duplicate or missing AI references from collapsing multiple nodes onto one coordinate in Trigger.dev production runs. Empty generated diagrams now start from a non-zero origin, final generated positions are logged before Liveblocks mutation, and add-edge resolution shares the same reference helper used by layout. ESLint, `tsc --noEmit`, and production build pass.
 
+Issue 009 production Liveblocks feed/layout hardening: `/api/liveblocks-auth` now creates the shared `ai-status-feed` and `ai-chat` feeds when a workspace room is bootstrapped and grants authenticated room members `feeds:write` alongside room write access, resolving production-only status/chat feed failures caused by feed permissions or missing feed initialization. The design agent now validates generated add-node positions before Liveblocks mutation, falls back to a deterministic grid when positions are unsafe or duplicated, and skips model move actions targeting nodes created in the same generated plan so freshly laid-out nodes cannot be collapsed afterward. ESLint, `tsc --noEmit`, and production build pass.
+
 ## In Progress
 
 - None.

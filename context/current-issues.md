@@ -406,7 +406,7 @@ Status: Resolved
 Resolution
 The AI sidebar now defines a three-column tab list with AI Architect, Chat, and Specs. The validated `ai-chat` feed message list and room-only chat composer live in the Chat tab, while the AI Architect tab stays focused on starter prompts, design prompt submission, and active run status.
 
-# [Issue 008] —  AI Generated Nodes Overlap in Production But Layout Correctly in Local Dev
+# [Issue 009] —  AI Generated Nodes Overlap in Production But Layout Correctly in Local Dev
 
 Status: Resolved
 
@@ -497,4 +497,109 @@ logs the final generated node positions to Trigger.dev immediately before
 mutating the shared Liveblocks React Flow state. The add-edge mapping path also
 resolves nodes through the same reference helper used by layout, improving
 production robustness when the model omits explicit ids.
+ 
 
+
+ Issue 09 — Three Production-Only Failures: Node Overlap, AI Status Unavailable, Chat Feed Empty
+Status: Resolved
+
+Description
+In production three things fail simultaneously that all work correctly in local dev:
+
+Nodes overlap — all generated nodes cluster at the same point (Issue 08 fix not yet effective in production)
+"AI status is temporarily unavailable" — the ai-status-feed strip shows an error state instead of AI progress messages
+Chat tab empty — the ai-chat feed shows no messages in production, send does nothing
+
+Expected Behavior
+
+Nodes distribute across canvas with proper spacing after AI generation
+AI status strip shows live progress messages during generation
+Chat tab shows messages sent by room participants in real time
+
+Actual Behavior
+
+All nodes overlap at center of canvas
+Status strip shows "AI status is temporarily unavailable." permanently
+Chat tab is completely empty, no messages appear even after sending
+
+Root Cause Hypotheses
+Node overlap (still present)
+
+Issue 08 fix deployed but Trigger.dev production deploy not run after fix
+OR index-based position fix only partially solved — layer assignment still broken
+
+AI status unavailable
+
+ai-status-feed Liveblocks feed name mismatch between what the task publishes to and what the sidebar subscribes to
+OR LIVEBLOCKS_SECRET_KEY in Trigger.dev is set to Production environment but task runs in Development environment (or vice versa)
+OR Liveblocks feed not initialized/created for this room before the task tries to publish
+
+Chat feed empty
+
+ai-chat Liveblocks feed not subscribing correctly in production
+OR feed name mismatch between client subscription and server publish
+OR NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY missing or wrong in Vercel production environment variables
+OR Liveblocks room not properly initialized before feed subscription
+
+Investigation Checklist
+1. Trigger.dev deploy
+
+Was npx trigger.dev@latest deploy run after Issue 08 fix?
+Check Trigger.dev dashboard → Deployments — what is the latest deployed version?
+
+2. Environment variable mismatch
+
+In Trigger.dev dashboard, is LIVEBLOCKS_SECRET_KEY set for both Development AND Production?
+Currently it shows Production only — dev tasks may not have access
+
+3. Feed name consistency
+
+In trigger/design-agent.ts — what exact string is used for status feed publish?
+In components/editor/ai-sidebar.tsx — what exact string is used for status feed subscribe?
+These must match exactly: "ai-status-feed" === "ai-status-feed"
+
+4. Liveblocks public key on Vercel
+
+Is NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY set in Vercel environment variables?
+Is it the correct pk_prod_... key?
+
+5. Chat feed
+
+In components/editor/ai-sidebar.tsx — is ai-chat feed subscription inside the correct Liveblocks room context?
+Is the feed subscription running before or after room connection?
+
+References
+
+trigger/design-agent.ts — status feed publish calls
+components/editor/ai-sidebar.tsx — feed subscriptions
+liveblocks.config.ts — feed type definitions
+Trigger.dev dashboard → Deployments and Environment Variables
+Vercel dashboard → Environment Variables
+
+Acceptance Criteria
+
+ npx trigger.dev@latest deploy run after all fixes
+ LIVEBLOCKS_SECRET_KEY set for both Development and Production in Trigger.dev
+ Feed names match exactly between publish and subscribe
+ NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY confirmed in Vercel env vars
+ AI status strip shows live messages during generation
+ Chat tab shows and sends messages in production
+ Nodes distribute correctly after generation
+ npm run build passes
+
+Resolution
+Liveblocks feed access was the concrete production-only failure path. The
+workspace auth route now creates the shared `ai-status-feed` and `ai-chat`
+feeds while bootstrapping the room, then grants clients the `feeds:write`
+permission in addition to room write access. This keeps the canvas storage
+connection working while allowing the status and chat feed hooks to read/write
+their room feeds in production.
+
+The design agent also now validates final generated add-node positions before
+mutating Liveblocks. If any generated node position is non-finite, at the
+origin, or duplicates another generated node position, the task applies a
+deterministic fallback grid from the same server-side layout origin. Move
+actions targeting nodes created in the same plan are skipped so model-provided
+move actions cannot collapse freshly laid-out generated nodes after the layout
+pass.
+

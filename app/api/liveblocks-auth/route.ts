@@ -5,6 +5,7 @@ import {
   getAccessibleProject,
   type CurrentProjectIdentity,
 } from "@/lib/project-access"
+import { AI_CHAT_FEED_ID, AI_STATUS_FEED_ID } from "@/types/tasks"
 
 interface LiveblocksAuthBody {
   room: string
@@ -12,6 +13,34 @@ interface LiveblocksAuthBody {
 
 function jsonError(message: string, status: number) {
   return Response.json({ error: message }, { status })
+}
+
+async function ensureRoomFeeds(roomId: string) {
+  const liveblocks = getLiveblocksClient()
+  const feeds = [
+    {
+      id: AI_STATUS_FEED_ID,
+      name: "AI status feed",
+    },
+    {
+      id: AI_CHAT_FEED_ID,
+      name: "AI chat feed",
+    },
+  ]
+
+  await Promise.all(
+    feeds.map((feed) =>
+      liveblocks
+        .createFeed({
+          roomId,
+          feedId: feed.id,
+          metadata: {
+            name: feed.name,
+          },
+        })
+        .catch(() => undefined)
+    )
+  )
 }
 
 async function parseLiveblocksAuthBody(request: Request) {
@@ -77,6 +106,7 @@ export async function POST(request: Request) {
       title: project.name.slice(0, 256),
     },
   })
+  await ensureRoomFeeds(project.id)
 
   const displayName =
     user?.fullName ??
@@ -92,7 +122,7 @@ export async function POST(request: Request) {
     },
   })
 
-  session.allow(project.id, session.FULL_ACCESS)
+  session.allow(project.id, [...session.FULL_ACCESS, "feeds:write"])
 
   const { body, status } = await session.authorize()
 

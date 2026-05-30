@@ -118,6 +118,8 @@ const GENERATED_NODE_LAYER_X_POSITIONS = [0, 250, 550, 900] as const;
 const GENERATED_NODE_ROW_GAP = 170;
 const GENERATED_NODE_EXISTING_GAP = 260;
 const GENERATED_NODE_EMPTY_ORIGIN = { x: 120, y: 120 } as const;
+const GENERATED_NODE_FALLBACK_COLUMN_GAP = 280;
+const GENERATED_NODE_FALLBACK_COLUMNS = 4;
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_ACCESS_DENIED_MESSAGE =
   "Gemini access is denied for the configured API key project.";
@@ -584,7 +586,7 @@ function applyGeneratedNodeLayout(
     return plan;
   }
 
-  return {
+  const layoutPlan = {
     ...plan,
     actions: plan.actions.map((action, actionIndex) => {
       if (action.type === "addNode") {
@@ -616,6 +618,79 @@ function applyGeneratedNodeLayout(
       }
 
       return action;
+    }),
+  };
+
+  return ensureSafeGeneratedNodePositions(layoutPlan, snapshot);
+}
+
+function getFallbackGeneratedNodePosition(
+  origin: { x: number; y: number },
+  nodeIndex: number
+) {
+  const column = nodeIndex % GENERATED_NODE_FALLBACK_COLUMNS;
+  const row = Math.floor(nodeIndex / GENERATED_NODE_FALLBACK_COLUMNS);
+
+  return {
+    x: origin.x + column * GENERATED_NODE_FALLBACK_COLUMN_GAP,
+    y: origin.y + row * GENERATED_NODE_ROW_GAP,
+  };
+}
+
+function shouldReplaceGeneratedPositions(plan: DesignAgentPlan) {
+  const seenPositions = new Set<string>();
+
+  for (const action of plan.actions) {
+    if (action.type !== "addNode") {
+      continue;
+    }
+
+    if (!Number.isFinite(action.x) || !Number.isFinite(action.y)) {
+      return true;
+    }
+
+    if (action.x === 0 && action.y === 0) {
+      return true;
+    }
+
+    const positionKey = `${Math.round(action.x)}:${Math.round(action.y)}`;
+
+    if (seenPositions.has(positionKey)) {
+      return true;
+    }
+
+    seenPositions.add(positionKey);
+  }
+
+  return false;
+}
+
+function ensureSafeGeneratedNodePositions(
+  plan: DesignAgentPlan,
+  snapshot: { nodes: readonly CanvasNode[] }
+): DesignAgentPlan {
+  if (!shouldReplaceGeneratedPositions(plan)) {
+    return plan;
+  }
+
+  const origin = getCanvasLayoutOrigin(snapshot);
+  let addNodeIndex = 0;
+
+  return {
+    ...plan,
+    actions: plan.actions.map((action) => {
+      if (action.type !== "addNode") {
+        return action;
+      }
+
+      const position = getFallbackGeneratedNodePosition(origin, addNodeIndex);
+      addNodeIndex += 1;
+
+      return {
+        ...action,
+        x: position.x,
+        y: position.y,
+      };
     }),
   };
 }
@@ -769,6 +844,10 @@ function applyDesignPlan(plan: DesignAgentPlan, roomId: string) {
 
       if (action.type === "moveNode") {
         const nodeId = addedNodeIds.get(action.nodeId) ?? action.nodeId;
+
+        if (addedNodeIds.has(action.nodeId)) {
+          continue;
+        }
 
         flow.updateNode(nodeId, {
           position: {
