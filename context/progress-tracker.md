@@ -128,6 +128,8 @@ Issue 008 production AI layout fix: the design agent now keys generated node lay
 
 Issue 009 production Liveblocks feed/layout hardening: `/api/liveblocks-auth` now creates the shared `ai-status-feed` and `ai-chat` feeds when a workspace room is bootstrapped and grants authenticated room members `feeds:write` alongside room write access, resolving production-only status/chat feed failures caused by feed permissions or missing feed initialization. The design agent now validates generated add-node positions before Liveblocks mutation, falls back to a deterministic grid when positions are unsafe or duplicated, and skips model move actions targeting nodes created in the same generated plan so freshly laid-out nodes cannot be collapsed afterward. ESLint, `tsc --noEmit`, and production build pass.
 
+Trigger deploy indexing fix: `trigger/generate-spec.ts` now lazy-loads Prisma inside the spec persistence function instead of importing `@/lib/prisma` at module scope. This prevents Trigger.dev deployment indexing from failing when `DATABASE_URL` is unavailable during task-file import while still requiring the database connection when the spec task actually persists output. ESLint and `tsc --noEmit` pass.
+
 ## In Progress
 
 - None.

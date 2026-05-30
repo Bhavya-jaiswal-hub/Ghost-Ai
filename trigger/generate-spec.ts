@@ -5,7 +5,6 @@ import { generateText } from "ai";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-import { prisma } from "@/lib/prisma";
 import { NODE_SHAPES } from "@/types/canvas";
 import { aiChatFeedMessageSchema } from "@/types/tasks";
 
@@ -204,6 +203,7 @@ async function generateMarkdownSpec(payload: GenerateSpecPayload) {
 }
 
 async function persistMarkdownSpec(projectId: string, markdown: string) {
+  const { prisma } = await import("@/lib/prisma");
   const specId = randomUUID();
   const blob = await put(`specs/${projectId}/${specId}.md`, markdown, {
     access: "private",
