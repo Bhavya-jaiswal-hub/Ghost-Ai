@@ -7,6 +7,7 @@ import {
   getCurrentProjectIdentity,
 } from "@/lib/project-access";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { generateSpec } from "@/trigger/generate-spec";
 import { NODE_SHAPES } from "@/types/canvas";
 import { aiChatFeedMessageSchema } from "@/types/tasks";
@@ -98,6 +99,25 @@ export async function POST(request: Request) {
 
   if (!project) {
     return jsonError("Forbidden", 403);
+  }
+
+  const rateLimit = checkRateLimit(`ai-spec:${userId}`, 3, 60);
+
+  if (!rateLimit.success) {
+    return Response.json(
+      {
+        error: `Too many requests. Please wait ${rateLimit.resetInSeconds} seconds before trying again.`,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": `${rateLimit.resetInSeconds}`,
+          "X-RateLimit-Limit": `${rateLimit.limit}`,
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": `${Math.ceil(Date.now() / 1000) + rateLimit.resetInSeconds}`,
+        },
+      }
+    );
   }
 
   const handle = await tasks.trigger<typeof generateSpec>("generate-spec", {

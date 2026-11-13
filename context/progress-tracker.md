@@ -130,6 +130,8 @@ Issue 009 production Liveblocks feed/layout hardening: `/api/liveblocks-auth` no
 
 Trigger deploy indexing fix: `trigger/generate-spec.ts` now lazy-loads Prisma inside the spec persistence function instead of importing `@/lib/prisma` at module scope. This prevents Trigger.dev deployment indexing from failing when `DATABASE_URL` is unavailable during task-file import while still requiring the database connection when the spec task actually persists output. ESLint and `tsc --noEmit` pass.
 
+Improvement 03: Rate Limiting on AI Trigger Endpoints - added in-memory sliding-window rate limiter in `lib/rate-limit.ts` backed by `globalThis` to preserve state across warm serverless/Next.js executions with periodic memory cleanup. Integrated rate limit checks into `POST /api/ai/design` (5 req / 60s per user) and `POST /api/ai/spec` (3 req / 60s per user) following Clerk authentication and project access verification. Breaches return HTTP 429 Too Many Requests with `{ error: "Too many requests. Please wait X seconds before trying again." }` and standard `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers, preventing Trigger.dev background tasks from enqueueing when blocked. TypeScript (`tsc --noEmit`) and ESLint clean.
+
 ## In Progress
 
 - None.
