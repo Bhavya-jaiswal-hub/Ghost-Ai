@@ -1,3 +1,6 @@
+import { clerkClient } from "@clerk/nextjs/server"
+
+import { invalidateUserProjectsCache } from "@/lib/project-data"
 import { getCurrentProjectIdentity } from "@/lib/project-access"
 import {
   addProjectCollaborator,
@@ -80,7 +83,20 @@ async function authorizeShareAccess(projectId: string, requireOwner: boolean) {
     return { error: jsonError("Forbidden", 403) }
   }
 
-  return { data: access }
+  return { data: { ...access, userId: identity.userId } }
+}
+
+async function invalidateCollaboratorCache(email: string) {
+  try {
+    const client = await clerkClient()
+    const users = await client.users.getUserList({ emailAddress: [email] })
+    const collaboratorUser = users.data[0]
+    if (collaboratorUser?.id) {
+      invalidateUserProjectsCache(collaboratorUser.id)
+    }
+  } catch {
+    // Non-blocking if Clerk lookup fails or user doesn't exist yet
+  }
 }
 
 async function collaboratorsResponse(projectId: string, canManage: boolean) {
@@ -133,6 +149,8 @@ export async function POST(
 
   try {
     await addProjectCollaborator(projectId, parsedBody.data.email)
+    invalidateUserProjectsCache(authorized.data.userId)
+    await invalidateCollaboratorCache(parsedBody.data.email)
   } catch (error) {
     if (isPrismaError(error, "P2002")) {
       return jsonError("Collaborator already has access.", 409)
@@ -163,6 +181,8 @@ export async function DELETE(
 
   try {
     await removeProjectCollaborator(projectId, parsedBody.data.email)
+    invalidateUserProjectsCache(authorized.data.userId)
+    await invalidateCollaboratorCache(parsedBody.data.email)
   } catch (error) {
     if (isPrismaError(error, "P2025")) {
       return jsonError("Collaborator not found.", 404)

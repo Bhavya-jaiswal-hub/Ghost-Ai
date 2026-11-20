@@ -1,6 +1,7 @@
 import "server-only"
 
 import { auth, currentUser } from "@clerk/nextjs/server"
+import { revalidateTag, unstable_cache } from "next/cache"
 
 import { type Prisma } from "@/app/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
@@ -12,6 +13,11 @@ export interface EditorProject {
   updatedAt: string
 }
 
+export interface EditorProjectsResult {
+  ownedProjects: EditorProject[]
+  sharedProjects: EditorProject[]
+}
+
 function formatUpdatedAt(date: Date) {
   return new Intl.DateTimeFormat("en", {
     month: "short",
@@ -20,12 +26,15 @@ function formatUpdatedAt(date: Date) {
   }).format(date)
 }
 
-function serializeEditorProject(project: {
-  id: string
-  ownerId: string
-  name: string
-  updatedAt: Date
-}, userId: string): EditorProject {
+function serializeEditorProject(
+  project: {
+    id: string
+    ownerId: string
+    name: string
+    updatedAt: Date
+  },
+  userId: string
+): EditorProject {
   return {
     id: project.id,
     name: project.name,
@@ -34,19 +43,10 @@ function serializeEditorProject(project: {
   }
 }
 
-export async function getEditorProjects() {
-  const { isAuthenticated, userId } = await auth()
-
-  if (!isAuthenticated || !userId) {
-    return {
-      ownedProjects: [],
-      sharedProjects: [],
-    }
-  }
-
-  const user = await currentUser()
-  const emailAddresses =
-    user?.emailAddresses.map((email) => email.emailAddress.toLowerCase()) ?? []
+export async function fetchUserProjects(
+  userId: string,
+  emailAddresses: string[]
+): Promise<EditorProjectsResult> {
   const collaboratorFilter: Prisma.ProjectWhereInput[] =
     emailAddresses.length > 0
       ? [
@@ -85,4 +85,34 @@ export async function getEditorProjects() {
     ownedProjects: serializedProjects.filter((project) => project.owned),
     sharedProjects: serializedProjects.filter((project) => !project.owned),
   }
+}
+
+export function invalidateUserProjectsCache(userId: string): void {
+  revalidateTag(`projects-${userId}`, "max")
+}
+
+export async function getEditorProjects(): Promise<EditorProjectsResult> {
+  const { isAuthenticated, userId } = await auth()
+
+  if (!isAuthenticated || !userId) {
+    return {
+      ownedProjects: [],
+      sharedProjects: [],
+    }
+  }
+
+  const user = await currentUser()
+  const emailAddresses =
+    user?.emailAddresses.map((email) => email.emailAddress.toLowerCase()) ?? []
+
+  const getCachedProjects = unstable_cache(
+    () => fetchUserProjects(userId, emailAddresses),
+    ["editor-projects", userId],
+    {
+      revalidate: 60,
+      tags: [`projects-${userId}`],
+    }
+  )
+
+  return getCachedProjects()
 }

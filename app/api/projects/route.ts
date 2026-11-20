@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 
 import { prisma } from "@/lib/prisma";
+import { invalidateUserProjectsCache } from "@/lib/project-data";
 
 const DEFAULT_PROJECT_NAME = "Untitled Project";
 
@@ -130,6 +131,8 @@ export async function POST(request: Request) {
         name: parsedBody.data.name ?? DEFAULT_PROJECT_NAME,
       },
     });
+
+    invalidateUserProjectsCache(userId);
 
     return Response.json(
       {

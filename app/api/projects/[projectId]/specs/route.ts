@@ -1,3 +1,5 @@
+import { revalidateTag, unstable_cache } from "next/cache"
+
 import {
   getAccessibleProject,
   getCurrentProjectIdentity,
@@ -8,6 +10,11 @@ interface ProjectSpecsRouteContext {
   params: Promise<{
     projectId: string
   }>
+}
+
+interface CachedProjectSpec {
+  id: string
+  createdAt: string
 }
 
 function jsonError(message: string, status: number) {
@@ -34,6 +41,41 @@ function createAttachmentFilename(projectName: string, specId: string) {
   return `${safeProjectName || "project"}-${specId}.md`
 }
 
+export function invalidateProjectSpecsCache(projectId: string): void {
+  revalidateTag(`specs-${projectId}`, "max")
+}
+
+async function fetchProjectSpecs(projectId: string): Promise<CachedProjectSpec[]> {
+  const specs = await prisma.projectSpec.findMany({
+    where: {
+      projectId,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      id: true,
+      createdAt: true,
+    },
+  })
+
+  return specs.map((spec) => ({
+    id: spec.id,
+    createdAt: spec.createdAt.toISOString(),
+  }))
+}
+
+function getCachedProjectSpecs(projectId: string) {
+  return unstable_cache(
+    () => fetchProjectSpecs(projectId),
+    ["project-specs", projectId],
+    {
+      revalidate: 30,
+      tags: [`specs-${projectId}`],
+    }
+  )()
+}
+
 export async function GET(
   _request: Request,
   context: ProjectSpecsRouteContext
@@ -51,21 +93,10 @@ export async function GET(
     return jsonError("Forbidden", 403)
   }
 
-  let specs
+  let specs: CachedProjectSpec[]
 
   try {
-    specs = await prisma.projectSpec.findMany({
-      where: {
-        projectId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      select: {
-        id: true,
-        createdAt: true,
-      },
-    })
+    specs = await getCachedProjectSpecs(projectId)
   } catch (error) {
     if (isPrismaError(error, "P2021")) {
       return jsonError("Project spec storage is not ready.", 503)
@@ -77,7 +108,7 @@ export async function GET(
   return Response.json({
     specs: specs.map((spec) => ({
       id: spec.id,
-      createdAt: spec.createdAt.toISOString(),
+      createdAt: spec.createdAt,
       filename: createAttachmentFilename(project.name, spec.id),
       downloadPath: `/api/projects/${projectId}/specs/${spec.id}/download`,
     })),

@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 
 import { prisma } from "@/lib/prisma";
+import { invalidateUserProjectsCache } from "@/lib/project-data";
 
 interface RenameProjectBody {
   name: string;
@@ -133,6 +134,8 @@ export async function PATCH(request: Request, context: ProjectRouteContext) {
         name: parsedBody.data.name,
       },
     });
+
+    invalidateUserProjectsCache(userId);
   } catch (error) {
     if (isPrismaRecordNotFoundError(error)) {
       return jsonError("Not Found", 404);
@@ -167,6 +170,8 @@ export async function DELETE(_request: Request, context: ProjectRouteContext) {
         ownerId: userId,
       },
     });
+
+    invalidateUserProjectsCache(userId);
   } catch (error) {
     if (isPrismaRecordNotFoundError(error)) {
       return jsonError("Not Found", 404);
