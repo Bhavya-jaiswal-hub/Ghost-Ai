@@ -182,9 +182,7 @@ export function SpecsTab({ projectId, getCanvasSnapshot }: SpecsTabProps) {
 
     async function loadPreview() {
       try {
-        const response = await fetch(spec.downloadPath, {
-          cache: "no-store",
-        })
+        const response = await fetch(spec.downloadPath)
 
         if (!response.ok) {
           throw new Error("Could not load the spec preview.")

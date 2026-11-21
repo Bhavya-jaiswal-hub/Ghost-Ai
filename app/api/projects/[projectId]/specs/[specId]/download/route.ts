@@ -64,7 +64,7 @@ export async function GET(
   try {
     blob = await get(spec.filePath, {
       access: "private",
-      useCache: false,
+      useCache: true,
     });
   } catch (error) {
     console.error("Spec blob read failed.", error);
@@ -83,7 +83,7 @@ export async function GET(
         project.name,
         specId
       )}"`,
-      "Cache-Control": "private, no-store",
+      "Cache-Control": "private, max-age=86400, immutable",
     },
   });
 }
