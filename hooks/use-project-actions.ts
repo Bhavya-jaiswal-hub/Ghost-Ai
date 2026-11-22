@@ -1,11 +1,16 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { startTransition, useMemo, useOptimistic, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 
 import { type EditorProject } from "@/lib/project-data"
 
 export type ProjectDialogMode = "create" | "rename" | "delete" | null
+
+export type OptimisticProjectAction =
+  | { type: "rename"; id: string; name: string }
+  | { type: "delete"; id: string }
+  | { type: "create"; project: EditorProject }
 
 interface UseProjectActionsOptions {
   ownedProjects: EditorProject[]
@@ -71,6 +76,24 @@ export function useProjectActions({
   const [createSuffix, setCreateSuffix] = useState(createShortSuffix)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const [optimisticOwnedProjects, setOptimisticOwnedProjects] = useOptimistic(
+    ownedProjects,
+    (state: EditorProject[], action: OptimisticProjectAction) => {
+      switch (action.type) {
+        case "rename":
+          return state.map((p) =>
+            p.id === action.id ? { ...p, name: action.name } : p
+          )
+        case "delete":
+          return state.filter((p) => p.id !== action.id)
+        case "create":
+          return [action.project, ...state]
+        default:
+          return state
+      }
+    }
+  )
 
   const roomIdPreview = useMemo(() => {
     return `${createProjectSlug(projectName)}-${createSuffix}`
@@ -153,89 +176,96 @@ export function useProjectActions({
     }
   }
 
-  async function submitRenameProject() {
+  function submitRenameProject() {
     if (isLoading) return
     if (!selectedProject?.owned) {
       return
     }
 
-    setIsLoading(true)
-    setErrorMessage(null)
+    const targetProject = selectedProject
+    const name = projectName.trim() || targetProject.name
 
-    try {
-      const name = projectName.trim() || selectedProject.name
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
-      const response = await fetch(`/api/projects/${selectedProject.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name }),
-        signal: controller.signal,
+    startTransition(async () => {
+      setOptimisticOwnedProjects({
+        type: "rename",
+        id: targetProject.id,
+        name,
       })
-
-       clearTimeout(timeoutId)
-
-      await readProjectResponse(response)
       closeDialog(true)
-      router.refresh()
-    } catch (error) {
-       if (error instanceof Error && error.name === 'AbortError') {
-      setErrorMessage("Request timed out. Please try again.")
-    } else {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Project request failed."
-      )
-    }
-    } finally {
-      setIsLoading(false)
-    }
+
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000)
+        const response = await fetch(`/api/projects/${targetProject.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name }),
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+
+        await readProjectResponse(response)
+        router.refresh()
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          setErrorMessage("Request timed out. Please try again.")
+        } else {
+          setErrorMessage(
+            error instanceof Error ? error.message : "Project request failed."
+          )
+        }
+      }
+    })
   }
 
-  async function submitDeleteProject() {
+  function submitDeleteProject() {
     if (isLoading) return
     if (!selectedProject?.owned) {
       return
     }
 
-    setIsLoading(true)
-    setErrorMessage(null)
+    const targetProject = selectedProject
+    const activeWorkspacePath = `/editor/${targetProject.id}`
 
-    try {  
-      const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
-      const response = await fetch(`/api/projects/${selectedProject.id}`, {
-        method: "DELETE",
-        signal: controller.signal,
+    startTransition(async () => {
+      setOptimisticOwnedProjects({
+        type: "delete",
+        id: targetProject.id,
       })
-      clearTimeout(timeoutId)
-
-
-      await readProjectResponse(response)
-      const activeWorkspacePath = `/editor/${selectedProject.id}`
       closeDialog(true)
 
-      if (pathname === activeWorkspacePath) {
-        router.replace("/editor")
-      } else {
-        router.refresh()
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000)
+        const response = await fetch(`/api/projects/${targetProject.id}`, {
+          method: "DELETE",
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+
+        await readProjectResponse(response)
+
+        if (pathname === activeWorkspacePath) {
+          router.replace("/editor")
+        } else {
+          router.refresh()
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          setErrorMessage("Request timed out. Please try again.")
+        } else {
+          setErrorMessage(
+            error instanceof Error ? error.message : "Project request failed."
+          )
+        }
       }
-    } catch (error) { 
-      if (error instanceof Error && error.name === 'AbortError') {
-      setErrorMessage("Request timed out. Please try again.")
-    } else {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Project request failed."
-      )
-    }
-    } finally {
-      setIsLoading(false)
-    }
+    })
   }
 
   return {
-    ownedProjects,
+    ownedProjects: optimisticOwnedProjects,
     sharedProjects,
     dialogMode,
     projectName,

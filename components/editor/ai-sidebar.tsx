@@ -27,6 +27,7 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { SpecsTab } from "@/components/editor/specs-tab"
+import { useToast } from "@/components/ui/toast"
 import {
   Tabs,
   TabsContent,
@@ -106,6 +107,8 @@ export function AiSidebar({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingChat, setIsSendingChat] = useState(false)
   const [activeRun, setActiveRun] = useState<ActiveDesignRun | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
+  const { toast } = useToast()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const chatTextareaRef = useRef<HTMLTextAreaElement>(null)
   const failedRealtimeRunIdRef = useRef<string | null>(null)
@@ -135,11 +138,13 @@ export function AiSidebar({
     setActiveRun((currentRun) =>
       currentRun?.runId === run.id ? null : currentRun
     )
+    setRetryCount(0)
   }, [])
   const {
     run: realtimeRun,
     error: realtimeRunError,
   } = useRealtimeRun<typeof designAgent>(activeRun?.runId, {
+    id: activeRun ? `${activeRun.runId}-attempt-${retryCount}` : undefined,
     accessToken: activeRun?.publicToken,
     enabled: Boolean(activeRun?.runId && activeRun.publicToken),
     onComplete: handleRunComplete,
@@ -242,14 +247,30 @@ export function AiSidebar({
       return
     }
 
-    if (failedRealtimeRunIdRef.current === activeRun.runId) {
-      return
+    const RETRY_DELAYS_MS = [1000, 2000, 4000]
+
+    if (retryCount < RETRY_DELAYS_MS.length) {
+      const delay = RETRY_DELAYS_MS[retryCount]
+      const timer = setTimeout(() => {
+        setRetryCount((prev) => prev + 1)
+      }, delay)
+
+      return () => clearTimeout(timer)
     }
 
-    failedRealtimeRunIdRef.current = activeRun.runId
+    const failureTimer = setTimeout(() => {
+      failedRealtimeRunIdRef.current = activeRun.runId
+      setActiveRun(null)
+      setRetryCount(0)
+      toast({
+        title: "Task Polling Failed",
+        description: "Could not follow AI run. Please check your network.",
+        variant: "destructive",
+      })
+    }, 0)
 
-    setActiveRun(null)
-  }, [activeRun, realtimeRunError])
+    return () => clearTimeout(failureTimer)
+  }, [activeRun, realtimeRunError, retryCount, toast])
 
   function handleStarterPrompt(starterPrompt: string) {
     setPrompt(starterPrompt)
@@ -283,6 +304,7 @@ export function AiSidebar({
 
       const designRun = await triggerDesignRun(trimmedPrompt, roomId)
       failedRealtimeRunIdRef.current = null
+      setRetryCount(0)
       setActiveRun(designRun)
     } catch {
       // Startup failures should not be persisted as room chat output.

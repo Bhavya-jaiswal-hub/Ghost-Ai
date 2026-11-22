@@ -31,6 +31,7 @@ import {
   useOthersMapped,
   useRedo,
   useRoom,
+  useStatus,
   useUndo,
   useUpdateMyPresence,
 } from "@liveblocks/react/suspense"
@@ -72,6 +73,7 @@ import {
   Plus,
   RectangleHorizontal,
   Redo2,
+  RefreshCw,
   Save,
   Scan,
   TriangleAlert,
@@ -213,6 +215,7 @@ interface CanvasErrorBoundaryProps {
 
 interface CanvasErrorBoundaryState {
   hasError: boolean
+  retryKey: number
 }
 
 class CanvasErrorBoundary extends Component<
@@ -221,14 +224,22 @@ class CanvasErrorBoundary extends Component<
 > {
   state: CanvasErrorBoundaryState = {
     hasError: false,
+    retryKey: 0,
   }
 
-  static getDerivedStateFromError(): CanvasErrorBoundaryState {
+  static getDerivedStateFromError(): Partial<CanvasErrorBoundaryState> {
     return { hasError: true }
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Liveblocks canvas failed to connect.", error, errorInfo)
+  }
+
+  handleRetry = () => {
+    this.setState((prev) => ({
+      hasError: false,
+      retryKey: prev.retryKey + 1,
+    }))
   }
 
   render() {
@@ -237,29 +248,68 @@ class CanvasErrorBoundary extends Component<
         <CanvasStateMessage
           title="Canvas connection failed"
           description="Refresh the workspace or check that you still have access to this project."
+          onRetry={this.handleRetry}
         />
       )
     }
 
-    return this.props.children
+    return (
+      <div key={this.state.retryKey} className="size-full">
+        {this.props.children}
+      </div>
+    )
   }
 }
 
 function CanvasStateMessage({
   title,
   description,
+  onRetry,
 }: {
   title: string
   description: string
+  onRetry?: () => void
 }) {
   return (
     <div className="flex h-full min-h-0 items-center justify-center px-6 text-center">
-      <div>
+      <div className="flex flex-col items-center">
         <h2 className="text-sm font-medium text-copy-primary">{title}</h2>
         <p className="mt-2 max-w-sm text-sm leading-6 text-copy-muted">
           {description}
         </p>
+        {onRetry ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onRetry}
+            className="mt-4 gap-2 border-surface-border bg-surface text-copy-primary hover:bg-subtle hover:text-copy-primary"
+          >
+            <RefreshCw className="size-3.5" />
+            Try Reconnecting
+          </Button>
+        ) : null}
       </div>
+    </div>
+  )
+}
+
+function CanvasConnectionBanner() {
+  const status = useStatus()
+  const isReconnecting = status === "reconnecting" || status === "disconnected"
+
+  if (!isReconnecting) {
+    return null
+  }
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none absolute top-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-surface-border bg-surface/90 px-4 py-2 text-xs font-medium text-state-warning shadow-lg backdrop-blur transition-all duration-300"
+    >
+      <LoaderCircle className="size-3.5 animate-spin text-state-warning shrink-0" />
+      <span>⚠️ Connection lost. Reconnecting to collaborative workspace...</span>
     </div>
   )
 }
@@ -1895,6 +1945,7 @@ function CanvasFlow({
     <CanvasNodeActionsContext.Provider value={nodeActions}>
       <CanvasEdgeActionsContext.Provider value={edgeActions}>
         <div className="relative h-full w-full">
+          <CanvasConnectionBanner />
           <ReactFlow
             nodes={nodes}
             edges={normalizedEdges}

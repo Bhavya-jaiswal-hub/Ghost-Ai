@@ -5,6 +5,7 @@ import "./globals.css";
 
 import { signInUrl, signUpUrl } from "@/lib/auth-routes";
 import { clerkAppearance } from "@/lib/clerk-appearance";
+import { ToastProvider } from "@/components/ui/toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,7 +42,7 @@ export default function RootLayout({
           className="min-h-full w-full overflow-x-hidden flex flex-col bg-base font-sans antialiased"
           suppressHydrationWarning
         >
-          {children}
+          <ToastProvider>{children}</ToastProvider>
         </body>
       </html>
     </ClerkProvider>
